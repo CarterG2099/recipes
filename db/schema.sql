@@ -24,7 +24,8 @@ create index if not exists recipes_updated_at_idx on public.recipes (updated_at 
 
 -- Keep updated_at current on every update.
 create or replace function public.set_updated_at()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+set search_path = '' as $$
 begin
     new.updated_at = now();
     return new;
