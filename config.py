@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str
     FASTAPI_SECRET_KEY: str
     IS_PRODUCTION: bool = False
-    PORT: int = 8000
+    PORT: int = 8001
     SENTRY_DSN: str | None = None
     # Comma-separated emails allowed to edit recipes (besides admins and the
     # allowed_emails table). Reading recipes is always public; only writes are
