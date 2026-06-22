@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recipe</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/pages.css">
+  <script>
+    const t = localStorage.getItem('theme') || 'system';
+    document.documentElement.setAttribute('data-theme',
+      t === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t);
+  </script>
+</head>
+<body data-page="recipe">
+
+  <header class="app-header" x-data>
+    <a href="/" class="app-logo">🍳 Recipes</a>
+    <div class="header-actions">
+      <a href="/edit" class="btn btn-primary btn-sm" x-cloak x-show="$store.auth.isEditor">+ Add Recipe</a>
+      <button class="btn btn-ghost btn-icon" @click="$store.ui.toggleTheme()" title="Toggle dark mode">
+        <span x-text="$store.ui.getEffectiveTheme() === 'dark' ? '☀️' : '🌙'"></span>
+      </button>
+      <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isEditor" @click="$store.auth.logout()">Sign Out</button>
+      <a href="/auth" class="btn btn-ghost btn-sm" x-cloak x-show="!$store.auth.isLoggedIn">Sign In</a>
+    </div>
+  </header>
+
+  <main class="page-content" x-data="recipePage()" x-init="init()">
+    <div x-show="loading" style="display:flex; justify-content:center; padding:4rem;">
+      <div class="spinner"></div>
+    </div>
+
+    <div x-show="!loading && error" class="empty-state" x-text="error"></div>
+
+    <article class="recipe-detail" x-show="!loading && recipe" x-cloak>
+      <div style="display:flex; justify-content:space-between; gap:var(--space-4); align-items:flex-start;">
+        <h1 x-text="recipe?.title"></h1>
+        <div class="header-actions" x-cloak x-show="$store.auth.isEditor" style="flex:0 0 auto;">
+          <a class="btn btn-ghost btn-sm" :href="`/edit?id=${recipe?.id}`">Edit</a>
+          <button class="btn btn-danger btn-sm" @click="del()">Delete</button>
+        </div>
+      </div>
+
+      <p class="text-muted" x-show="recipe?.description" x-text="recipe?.description" style="line-height:1.55;"></p>
+
+      <div class="recipe-meta">
+        <span x-show="recipe?.prep_time_minutes" x-text="`Prep ${recipe?.prep_time_minutes} min`"></span>
+        <span x-show="recipe?.cook_time_minutes" x-text="`Cook ${recipe?.cook_time_minutes} min`"></span>
+        <span x-show="totalTime" x-text="`Total ${totalTime} min`"></span>
+        <span x-show="recipe?.servings" x-text="`Serves ${recipe?.servings}`"></span>
+      </div>
+
+      <div class="recipe-card-tags" style="margin-bottom:var(--space-6);">
+        <template x-for="tag in (recipe?.tags || [])" :key="tag">
+          <span class="badge" x-text="tag"></span>
+        </template>
+      </div>
+
+      <div class="recipe-columns">
+        <section>
+          <h2 class="recipe-section-title">Ingredients</h2>
+          <ul class="ingredient-list">
+            <template x-for="(ing, i) in (recipe?.ingredients || [])" :key="i">
+              <li x-text="ing"></li>
+            </template>
+          </ul>
+        </section>
+        <section>
+          <h2 class="recipe-section-title">Instructions</h2>
+          <ol class="instruction-list">
+            <template x-for="(step, i) in (recipe?.instructions || [])" :key="i">
+              <li x-text="step"></li>
+            </template>
+          </ol>
+        </section>
+      </div>
+
+      <p x-show="recipe?.source_url" style="margin-top:var(--space-8);">
+        <a class="text-muted" :href="recipe?.source_url" target="_blank" rel="noopener noreferrer">Source ↗</a>
+      </p>
+    </article>
+  </main>
+
+  <div class="toast" x-data x-cloak x-show="$store.ui.toast" x-transition>
+    <span class="toast-msg" x-text="$store.ui.toast?.msg"></span>
+    <button class="toast-close" @click="$store.ui.dismissToast()">✕</button>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

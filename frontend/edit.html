@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit Recipe</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/pages.css">
+  <script>
+    const t = localStorage.getItem('theme') || 'system';
+    document.documentElement.setAttribute('data-theme',
+      t === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t);
+  </script>
+</head>
+<body data-page="edit">
+
+  <header class="app-header" x-data>
+    <a href="/" class="app-logo">🍳 Recipes</a>
+    <div class="header-actions">
+      <button class="btn btn-ghost btn-icon" @click="$store.ui.toggleTheme()" title="Toggle dark mode">
+        <span x-text="$store.ui.getEffectiveTheme() === 'dark' ? '☀️' : '🌙'"></span>
+      </button>
+      <button class="btn btn-ghost btn-sm" @click="$store.auth.logout()">Sign Out</button>
+    </div>
+  </header>
+
+  <main class="page-content" x-data="editPage()" x-init="init()">
+    <div class="edit-form">
+      <h1 x-text="id ? 'Edit Recipe' : 'New Recipe'" style="margin-bottom:var(--space-6);"></h1>
+
+      <!-- Import (create mode only) -->
+      <div class="card form-section" x-show="!id" style="padding:var(--space-4);">
+        <h2 class="recipe-section-title">Import (optional)</h2>
+        <div class="import-row" style="margin-bottom:var(--space-3);">
+          <input class="input" type="url" placeholder="Paste a recipe URL…" x-model="importUrlValue">
+          <button class="btn btn-ghost btn-sm" @click="importUrl()" :disabled="importing">
+            <span x-text="importing ? 'Importing…' : 'Import from URL'"></span>
+          </button>
+        </div>
+        <div class="import-row">
+          <input type="file" accept="application/pdf" x-ref="pdf" @change="importPdf($event)">
+          <span class="text-muted" style="font-size:var(--text-sm);">Text-based PDFs only</span>
+        </div>
+        <div class="import-warning" x-show="importWarning" x-text="importWarning"></div>
+      </div>
+
+      <div x-show="error" class="auth-notice auth-notice--error" x-text="error"></div>
+
+      <!-- Basics -->
+      <div class="form-section">
+        <div class="form-group">
+          <label class="form-label">Title</label>
+          <input class="input" type="text" x-model="form.title" placeholder="e.g. Weeknight Carbonara">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="input" rows="2" x-model="form.description"></textarea>
+        </div>
+        <div class="field-grid">
+          <div class="form-group">
+            <label class="form-label">Prep (min)</label>
+            <input class="input" type="number" min="0" x-model.number="form.prep_time_minutes">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cook (min)</label>
+            <input class="input" type="number" min="0" x-model.number="form.cook_time_minutes">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Servings</label>
+            <input class="input" type="text" x-model="form.servings" placeholder="e.g. 4">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tags (comma-separated)</label>
+          <input class="input" type="text" x-model="form.tagsText" placeholder="dinner, pasta, quick">
+        </div>
+      </div>
+
+      <!-- Ingredients -->
+      <div class="form-section">
+        <h2 class="recipe-section-title">Ingredients</h2>
+        <template x-for="(ing, i) in form.ingredients" :key="i">
+          <div class="line-row">
+            <input class="input" type="text" x-model="form.ingredients[i]" placeholder="1 cup flour">
+            <button class="btn btn-ghost btn-icon" @click="form.ingredients.splice(i, 1)" title="Remove">✕</button>
+          </div>
+        </template>
+        <button class="btn btn-ghost btn-sm" @click="form.ingredients.push('')">+ Add ingredient</button>
+      </div>
+
+      <!-- Instructions -->
+      <div class="form-section">
+        <h2 class="recipe-section-title">Instructions</h2>
+        <template x-for="(step, i) in form.instructions" :key="i">
+          <div class="line-row">
+            <span class="text-muted" style="padding-top:.5rem; min-width:1.5rem;" x-text="(i + 1) + '.'"></span>
+            <textarea class="input" rows="2" x-model="form.instructions[i]"></textarea>
+            <button class="btn btn-ghost btn-icon" @click="form.instructions.splice(i, 1)" title="Remove">✕</button>
+          </div>
+        </template>
+        <button class="btn btn-ghost btn-sm" @click="form.instructions.push('')">+ Add step</button>
+      </div>
+
+      <div class="form-section">
+        <div class="form-group">
+          <label class="form-label">Source URL (optional)</label>
+          <input class="input" type="url" x-model="form.source_url">
+        </div>
+      </div>
+
+      <div class="header-actions" style="justify-content:flex-end;">
+        <a class="btn btn-ghost" href="/">Cancel</a>
+        <button class="btn btn-primary" @click="save()" :disabled="saving">
+          <span x-text="saving ? 'Saving…' : 'Save Recipe'"></span>
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <div class="toast" x-data x-cloak x-show="$store.ui.toast" x-transition>
+    <span class="toast-msg" x-text="$store.ui.toast?.msg"></span>
+    <button class="toast-close" @click="$store.ui.dismissToast()">✕</button>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

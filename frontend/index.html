@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recipes</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/pages.css">
+  <script>
+    const t = localStorage.getItem('theme') || 'system';
+    document.documentElement.setAttribute('data-theme',
+      t === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t);
+  </script>
+</head>
+<body data-page="browse">
+
+  <header class="app-header" x-data>
+    <a href="/" class="app-logo">🍳 Recipes</a>
+    <div class="header-actions">
+      <a href="/edit" class="btn btn-primary btn-sm" x-cloak x-show="$store.auth.isEditor">+ Add Recipe</a>
+      <button class="btn btn-ghost btn-icon" @click="$store.ui.toggleTheme()" title="Toggle dark mode">
+        <span x-text="$store.ui.getEffectiveTheme() === 'dark' ? '☀️' : '🌙'"></span>
+      </button>
+      <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isEditor" @click="$store.auth.logout()">Sign Out</button>
+      <a href="/auth" class="btn btn-ghost btn-sm" x-cloak x-show="!$store.auth.isLoggedIn">Sign In</a>
+    </div>
+  </header>
+
+  <main class="page-content" x-data="browsePage()" x-init="init()">
+    <div class="browse-toolbar">
+      <input class="input" type="search" placeholder="Search recipes, ingredients, tags…" x-model="search">
+    </div>
+
+    <div class="tag-filter-row" x-show="tags.length">
+      <button class="tag-chip" :class="{ active: activeTag === null }" @click="activeTag = null">All</button>
+      <template x-for="tag in tags" :key="tag">
+        <button class="tag-chip" :class="{ active: activeTag === tag }"
+          @click="activeTag = (activeTag === tag ? null : tag)" x-text="tag"></button>
+      </template>
+    </div>
+
+    <div x-show="loading" style="display:flex; justify-content:center; padding:4rem;">
+      <div class="spinner"></div>
+    </div>
+
+    <div x-show="!loading && error" class="empty-state" x-text="error"></div>
+
+    <div x-show="!loading && !error && filtered.length === 0" class="empty-state">
+      No recipes found.
+    </div>
+
+    <div class="recipe-grid" x-show="!loading && !error && filtered.length">
+      <template x-for="r in filtered" :key="r.id">
+        <a class="card recipe-card" :href="`/recipe?id=${r.id}`">
+          <h3 x-text="r.title"></h3>
+          <p class="recipe-desc" x-show="r.description" x-text="r.description"></p>
+          <div class="recipe-meta">
+            <span x-show="totalTime(r)" x-text="totalTime(r)"></span>
+            <span x-show="r.servings" x-text="`Serves ${r.servings}`"></span>
+          </div>
+          <div class="recipe-card-tags">
+            <template x-for="tag in r.tags" :key="tag">
+              <span class="badge" x-text="tag"></span>
+            </template>
+          </div>
+        </a>
+      </template>
+    </div>
+  </main>
+
+  <div class="toast" x-data x-cloak x-show="$store.ui.toast" x-transition>
+    <span class="toast-msg" x-text="$store.ui.toast?.msg"></span>
+    <button class="toast-close" @click="$store.ui.dismissToast()">✕</button>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+/* tokens.css — single source of truth for all visual values */
+:root {
+  /* Backgrounds */
+  --color-bg:             #ffffff;
+  --color-surface:        #f8f9fa;
+  --color-surface-raised: #ffffff;
+  --color-border:         #e9ecef;
+  --color-control:        #f1f3f5;   /* form controls / dropdown triggers — distinct from bg */
+  --color-menu:           #ffffff;   /* dropdown menu panel */
+  --color-menu-item:      #f8f9fa;   /* dropdown item at rest */
+  --color-hover:          #e9ecef;   /* hovered dropdown item — one step darker */
+
+  /* Text */
+  --color-text:           #212529;
+  --color-text-muted:     #6c757d;
+
+  /* Brand / interactive */
+  --color-primary:        #4361ee;
+  --color-primary-hover:  #3451d1;
+  --color-danger:         #e63946;
+  --color-success:        #2a9d8f;
+  --color-warning:        #f4a261;
+
+  /* Budget progress bar states */
+  --color-budget-ok:      #2a9d8f;   /* 0–75% */
+  --color-budget-warn:    #f4a261;   /* 76–90% */
+  --color-budget-over:    #e63946;   /* 91–100% */
+  /* >100% → #c1121f dark red, no token needed */
+
+  /* Amount semantic colors */
+  --color-income:         #2a9d8f;
+  --color-spending:       #e63946;
+  --color-investment:     #7209b7;
+  --color-transfer:       #4361ee;
+
+  /* Spacing (4px base) */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px;
+  --space-4: 16px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --text-sm:   0.875rem;
+  --text-base: 1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.25rem;
+  --text-2xl:  1.5rem;
+  --text-3xl:  1.875rem;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+  --shadow-md: 0 4px 6px rgba(0,0,0,.07);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,.10);
+
+  /* Border radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 20px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+}
+
+[data-theme="dark"] {
+  --color-bg:             #0f1117;
+  --color-surface:        #1a1d27;
+  --color-surface-raised: #22263a;
+  --color-border:         #2d3148;
+  --color-control:        #22263a;   /* distinct from #0f1117 page bg */
+  --color-menu:           #1a1d27;
+  --color-menu-item:      #22263a;
+  --color-hover:          #2d3148;
+  --color-text:           #e9ecef;
+  --color-text-muted:     #868e96;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.20);
+  --shadow-md: 0 4px 6px rgba(0,0,0,.30);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,.40);
+}
