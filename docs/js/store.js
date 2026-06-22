@@ -1,38 +1,38 @@
 /**
- * store.js — Alpine.js global stores (auth + ui)
+ * store.js — Alpine.js global stores (auth + ui), backed by supabase-js.
  */
 
-import { api } from './api.js';
+import { supabase, signIn, signOut, checkEditor } from './supabase.js';
 
-// ── auth store ──────────────────────────────────────────────
-// Reading is public; this only tracks whether the visitor is a logged-in editor
-// so the UI can reveal Add/Edit/Delete controls.
 export function registerAuthStore() {
   Alpine.store('auth', {
     user: null,
     isLoggedIn: false,
     isEditor: false,
+    ready: false,
 
     async init() {
-      try {
-        const data = await api.get('/auth/me');
-        this.user = data;
-        this.isLoggedIn = true;
-        this.isEditor = !!data.is_editor;
-      } catch (_) {
-        this.isLoggedIn = false;
-        this.isEditor = false;
-      }
+      const { data } = await supabase.auth.getSession();
+      await this._apply(data.session);
+      // React to login/logout (including the OAuth redirect landing).
+      supabase.auth.onAuthStateChange((_event, session) => this._apply(session));
     },
 
+    async _apply(session) {
+      this.user = session?.user ?? null;
+      this.isLoggedIn = !!session;
+      this.isEditor = session ? await checkEditor() : false;
+      this.ready = true;
+    },
+
+    signIn,
     async logout() {
-      try { await api.post('/auth/logout'); } catch (_) { }
+      await signOut();
       window.location.href = '/';
     },
   });
 }
 
-// ── ui store ────────────────────────────────────────────────
 export function registerUiStore() {
   const saved = localStorage.getItem('theme') || 'system';
 
@@ -52,8 +52,7 @@ export function registerUiStore() {
     },
 
     toggleTheme() {
-      const next = this.getEffectiveTheme() === 'dark' ? 'light' : 'dark';
-      this.setTheme(next);
+      this.setTheme(this.getEffectiveTheme() === 'dark' ? 'light' : 'dark');
     },
 
     applyTheme(theme) {

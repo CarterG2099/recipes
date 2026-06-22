@@ -1,6 +1,15 @@
-venv/
-__pycache__/
-*.pyc
+# Secrets — never commit (this repo is public)
 .env
+client_secret*.json
+*.pem
+
+# Cruft
 .DS_Store
 .coverage
+__pycache__/
+*.pyc
+venv/
+
+# Supabase CLI local artifacts
+supabase/.branches/
+supabase/.temp/

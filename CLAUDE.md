@@ -2,86 +2,69 @@
 
 Guidance for Claude Code when working in this repository.
 
-## Commands
+## What this is
 
-```bash
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-uvicorn main:app --reload --host 0.0.0.0 --port 8001
-```
+Recipe site for `recipes.cartergividen.com`: public browse, allowlisted Google
+login to edit. **No app server.** A static frontend (GitHub Pages, served from
+`docs/`) talks to Supabase directly via `supabase-js`. Backend logic that can't
+live in the browser is in Supabase Edge Functions.
 
-No linter or test suite is configured yet.
+This replaced an earlier FastAPI-on-Render design (see git history) to stay
+completely free — the FastAPI backend was retired.
 
-## Dependencies
-
-Pin every new third-party `import` in `requirements.txt` in the same commit —
-Render installs ONLY this file, so a missing module crashes the deploy at boot.
-"Imports fine locally" proves nothing if the local venv has stray packages.
-
-## Architecture
-
-Recipe site: public browse, allowlisted Google login to edit. **Stack**: FastAPI
-+ Supabase (Postgres + Auth) + Alpine.js frontend (no build step), served
-statically by FastAPI. Deployed on Render behind `recipes.cartergividen.com`.
+## Layout
 
 ```
-Browser (HTML + Alpine.js)
-    ↕ fetch (api.js: 401 → refresh → retry)
-FastAPI (main.py — security headers/CSP middleware)
-    ├── api/routers/  — auth (OAuth callback/refresh), recipes (CRUD), imports (url/pdf)
-    ├── services/     — recipe_service (CRUD), import_service (recipe-scrapers, pdfplumber)
-    ├── models/       — Pydantic schemas
-    └── api/deps.py   — get_current_user, require_editor (allowlist gate)
-        ↕
-Supabase Postgres (service-role client for all recipe access)
+docs/                     # the entire frontend = GitHub Pages site root
+  index.html              # browse (search + tag filter)
+  recipe.html             # detail (?id=)
+  edit.html               # create/edit (?id=), editor-only
+  CNAME                    # recipes.cartergividen.com
+  js/supabase.js          # supabase client + anon key (public) + auth helpers
+  js/store.js             # Alpine auth + ui stores
+  js/pages/*.js           # per-page logic, keyed off <body data-page>
+  css/*                   # tokens → base → components → pages (shared w/ budget)
+supabase/
+  schema.sql              # tables, RLS, is_editor() — re-runnable
+  functions/import-url/   # URL → JSON-LD recipe draft (verify_jwt = true)
+  functions/keepalive/    # DB-touch ping for uptime monitor (verify_jwt = false)
 ```
 
 ## Access model (do not regress)
 
-- All recipe DB access goes through the **service-role** client
-  (`db.client.supabase_admin`). There is no per-user RLS scoping — recipes are a
-  single shared collection.
-- **GET endpoints are public** (no auth dependency). **POST/PUT/DELETE and the
-  import endpoints depend on `require_editor`**, which checks the session email
-  against admins ∪ `ALLOWED_EMAILS` env ∪ the `allowed_emails` table.
-- `/auth/callback` admits only allowlisted editors — there's no point minting a
-  session for someone who can't edit.
-- RLS is enabled on `recipes` with a public-SELECT-only policy (no write
-  policies) as defense-in-depth; writes work only via the service role.
+- Browser uses the **anon key only**; there is no service-role key anywhere in
+  this repo or the frontend.
+- **Reads are public** via the `recipes_public_read` RLS policy.
+- **Writes require an allowlisted editor**: RLS insert/update/delete policies
+  call `is_editor()`, which checks the logged-in email against `allowed_emails`.
+  `is_editor()` is SECURITY DEFINER (the table is otherwise unreadable).
+- The edit page's redirect-if-not-editor is **UX only**; RLS is the real boundary.
+- `import-url` re-checks `is_editor()` with the caller's JWT so it can't be used
+  as an open URL-fetch proxy.
 
 ## Imports
 
-- URL: `recipe-scrapers` with `wild_mode=True` (schema.org/JSON-LD fallback for
-  unknown sites). Each accessor is wrapped in `_safe()` because sites don't all
-  implement every field.
-- PDF: `pdfplumber` text extraction + heuristic Ingredients/Instructions header
-  splitting. **Text-based PDFs only** — scanned/image PDFs return a warning, not
-  a silent empty draft. OCR (Tesseract) was deliberately deferred to avoid a
-  Docker deploy.
-- Both endpoints return an unsaved `RecipeDraft`; the edit form pre-fills it for
-  human review. Nothing is auto-saved.
+- URL: `import-url` Edge Function — fetch + schema.org/Recipe JSON-LD parsing
+  (handles `@graph`, HowToStep, HowToSection, ISO-8601 durations). Returns a
+  draft; never writes.
+- PDF: in-browser via pdf.js (loaded from jsdelivr). Heuristic Ingredients/
+  Instructions header split; text PDFs only — image/scanned PDFs yield a warning.
 
-## Security (do not regress)
+## Gotchas
 
-- CSP is set in `main.py` middleware. Alpine.js REQUIRES `'unsafe-eval'` in
-  `script-src` (it evaluates directives via the Function constructor).
-- The supabase-js CDN `<script>` in `auth.html` is SRI-pinned; to upgrade, bump
-  the version in the URL and recompute the `sha384` integrity hash.
-- The service-role key is backend-only and never sent to the browser
-  (`/api/config` returns only the URL + anon key).
-- Rate limits (`api/ratelimit.py`) guard `/auth/callback`, `/auth/refresh`, and
-  both import endpoints.
+- **Repo must stay public** for free GitHub Pages. Never commit secrets — `.env`,
+  `client_secret*.json` are gitignored. The Supabase anon key is safe to expose.
+- **CSP** is a `<meta http-equiv>` tag in each HTML file (GitHub Pages can't set
+  headers). It must allow `cdn.jsdelivr.net` (supabase-js + pdf.js), `'unsafe-eval'`
+  (Alpine), `blob:` workers (pdf.js), and `*.supabase.co` connections.
+- The supabase-js CDN `<script>` is SRI-pinned; bump the hash if you change the
+  version.
+- Free Supabase projects pause after ~7 days idle — the `keepalive` function +
+  an uptime monitor prevent that.
+- Edit/recipe links use real `.html` paths (`/recipe.html?id=…`) because Pages
+  has no server-side routing.
 
-## Static serving / CSS
+## Deploying Edge Functions
 
-FastAPI serves `frontend/` directly — no bundler. CSS layers:
-`tokens.css` → `base.css` → `components.css` → `pages.css`. `tokens.css`,
-`base.css`, `components.css`, `js/api.js`, `js/auth.js`, and the Alpine vendor
-file are shared verbatim with the budget app's design system.
-
-## Deploy
-
-Render (`render.yaml`), plain Python runtime, `healthCheckPath: /health`.
-Supabase is a **separate project** from budget (isolation from financial data).
-Run `db/schema.sql` once in that project's SQL editor.
+Via the Supabase MCP (`deploy_edge_function`) or the Supabase CLI. Keep
+`keepalive` at `verify_jwt = false` and `import-url` at `verify_jwt = true`.

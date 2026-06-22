@@ -1,41 +1,59 @@
 # Recipes
 
-A small recipe site — public to browse, allowlisted Google login to edit.
-Stack mirrors the budget app: FastAPI + Supabase + Alpine.js (no build step),
-deployed on Render behind `recipes.cartergividen.com`.
+A recipe site for `recipes.cartergividen.com` — public to browse, allowlisted
+Google login to edit. **No application server**: a static frontend (hosted on
+GitHub Pages) talks to Supabase directly.
 
-## Setup
+## Architecture
 
-```bash
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env          # fill in Supabase creds + secret + ADMIN_EMAILS
+```
+Browser (static HTML + Alpine.js + supabase-js)   ← GitHub Pages (docs/)
+    │  reads / writes (RLS-enforced)        ┌──────────────────────────────┐
+    ├───────────────────────────────────────► Supabase Postgres + Auth     │
+    │  URL import (POST)                     │  - recipes (public read,     │
+    ├───────────────────────────────────────►   editor-only write via RLS) │
+    │                                        │  - is_editor() gate          │
+    └─ PDF import runs in-browser (pdf.js)   │  Edge Functions:             │
+                                             │  - import-url (editor-only)  │
+                                             │  - keepalive (public ping)   │
+                                             └──────────────────────────────┘
 ```
 
-Create the database: open the Supabase SQL editor for the recipes project and
-run `db/schema.sql`.
+- **Reading** is public: the browser queries Supabase with the anon key; the
+  `recipes_public_read` RLS policy allows it.
+- **Editing** requires a Google login whose email is in `allowed_emails`. RLS
+  write policies call `is_editor()`; the UI hides edit controls for non-editors.
+- **URL import** → the `import-url` Edge Function fetches the page and parses its
+  schema.org/Recipe JSON-LD (editor-only).
+- **PDF import** → runs entirely in the browser with pdf.js; text only.
 
-## Run
+## Frontend (`docs/`)
+
+Static files served by GitHub Pages from the `docs/` folder on `main`, at the
+custom domain in `docs/CNAME`. No build step. The Supabase URL + anon key live in
+`docs/js/supabase.js` (both are public by design).
+
+## Backend (`supabase/`)
+
+- `supabase/schema.sql` — full schema, RLS policies, `is_editor()`. Re-runnable.
+- `supabase/functions/import-url/` — recipe URL extractor (verify_jwt = true).
+- `supabase/functions/keepalive/` — DB-touch endpoint for an uptime monitor to
+  hit so the free project doesn't pause (verify_jwt = false).
+
+## Deploy / setup
+
+1. **Supabase**: run `supabase/schema.sql`; enable Google OAuth (provider +
+   redirect URLs); deploy the two Edge Functions.
+2. **GitHub Pages**: repo Settings → Pages → deploy from `main` / `docs`. The
+   repo must be public for free Pages. Set DNS CNAME `recipes` → `<user>.github.io`.
+3. **Keepalive**: point UptimeRobot at the `keepalive` function URL.
+
+## Local preview
+
+It's static, so any static server works (port 8001 to avoid budget's 8000):
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8001
+cd docs && python3 -m http.server 8001
 ```
 
-## How it works
-
-- **Reading is public**: `GET /api/recipes`, `/api/recipes/{id}`, `/api/recipes/tags`
-  need no auth. All pages are public except `/edit`.
-- **Editing requires an allowlisted login**: `POST/PUT/DELETE /api/recipes/*` and
-  the import endpoints require a Google session whose email is in `ADMIN_EMAILS`,
-  `ALLOWED_EMAILS`, or the `allowed_emails` table. The login callback itself
-  rejects non-allowlisted accounts.
-- **Import**: `POST /api/import/url` uses `recipe-scrapers` (known-site parsers +
-  schema.org/JSON-LD fallback). `POST /api/import/pdf` extracts text with
-  `pdfplumber` and splits it heuristically. Both return an unsaved draft the edit
-  form pre-fills for review — neither writes to the database. Scanned/image PDFs
-  yield no text and return a warning.
-
-## Deploy
-
-Render web service (`render.yaml`), plain Python runtime. Set the env vars from
-`.env.example` in the Render dashboard.
+Note: Google OAuth redirect URLs must include whatever origin you preview from.

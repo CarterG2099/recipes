@@ -1,9 +1,10 @@
 /**
  * browse.js — recipe list with client-side search + tag filtering.
- * Loads the full collection once (personal-cookbook scale) and filters in memory.
+ * Reads straight from Supabase (public-read RLS); filters in memory at
+ * personal-cookbook scale.
  */
 
-import { api } from '../api.js';
+import { supabase } from '../supabase.js';
 
 window.browsePage = function browsePage() {
   return {
@@ -15,15 +16,17 @@ window.browsePage = function browsePage() {
     error: null,
 
     async init() {
-      try {
-        const [recipes, tags] = await Promise.all([
-          api.get('/api/recipes'),
-          api.get('/api/recipes/tags'),
-        ]);
-        this.all = recipes.recipes || [];
-        this.tags = tags.tags || [];
-      } catch (e) {
-        this.error = "Couldn't load recipes. " + (e.message || '');
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('id, title, description, ingredients, prep_time_minutes, cook_time_minutes, servings, tags')
+        .order('updated_at', { ascending: false });
+      if (error) {
+        this.error = "Couldn't load recipes. " + error.message;
+      } else {
+        this.all = data || [];
+        const seen = new Set();
+        for (const r of this.all) for (const t of (r.tags || [])) if (t) seen.add(t);
+        this.tags = [...seen].sort((a, b) => a.localeCompare(b));
       }
       this.loading = false;
     },

@@ -2,6 +2,7 @@
 <html lang="en" data-theme="system">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob: https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Recipe</title>
   <link rel="stylesheet" href="/css/tokens.css">
@@ -13,18 +14,19 @@
     document.documentElement.setAttribute('data-theme',
       t === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t);
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.js" integrity="sha384-CQbEv3UOeYwlaBLdPF5KqEagCP39Q1KpvJC6Gwa3UGjZAwMvpA+0TFxSSnrgb4MX" crossorigin="anonymous"></script>
 </head>
 <body data-page="recipe">
 
   <header class="app-header" x-data>
     <a href="/" class="app-logo">🍳 Recipes</a>
     <div class="header-actions">
-      <a href="/edit" class="btn btn-primary btn-sm" x-cloak x-show="$store.auth.isEditor">+ Add Recipe</a>
+      <a href="/edit.html" class="btn btn-primary btn-sm" x-cloak x-show="$store.auth.isEditor">+ Add Recipe</a>
       <button class="btn btn-ghost btn-icon" @click="$store.ui.toggleTheme()" title="Toggle dark mode">
         <span x-text="$store.ui.getEffectiveTheme() === 'dark' ? '☀️' : '🌙'"></span>
       </button>
       <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isEditor" @click="$store.auth.logout()">Sign Out</button>
-      <a href="/auth" class="btn btn-ghost btn-sm" x-cloak x-show="!$store.auth.isLoggedIn">Sign In</a>
+      <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.ready && !$store.auth.isLoggedIn" @click="$store.auth.signIn()">Sign In</button>
     </div>
   </header>
 
@@ -39,7 +41,7 @@
       <div style="display:flex; justify-content:space-between; gap:var(--space-4); align-items:flex-start;">
         <h1 x-text="recipe?.title"></h1>
         <div class="header-actions" x-cloak x-show="$store.auth.isEditor" style="flex:0 0 auto;">
-          <a class="btn btn-ghost btn-sm" :href="`/edit?id=${recipe?.id}`">Edit</a>
+          <a class="btn btn-ghost btn-sm" :href="`/edit.html?id=${recipe?.id}`">Edit</a>
           <button class="btn btn-danger btn-sm" @click="del()">Delete</button>
         </div>
       </div>

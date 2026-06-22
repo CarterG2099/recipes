@@ -2,7 +2,7 @@
  * recipe.js — single recipe detail. Reads ?id= from the query string.
  */
 
-import { api } from '../api.js';
+import { supabase } from '../supabase.js';
 
 window.recipePage = function recipePage() {
   return {
@@ -25,21 +25,21 @@ window.recipePage = function recipePage() {
         this.loading = false;
         return;
       }
-      try {
-        this.recipe = await api.get(`/api/recipes/${this.id}`);
-      } catch (e) {
-        this.error = e.status === 404 ? 'Recipe not found.' : "Couldn't load this recipe.";
-      }
+      const { data, error } = await supabase
+        .from('recipes').select('*').eq('id', this.id).maybeSingle();
+      if (error) this.error = "Couldn't load this recipe.";
+      else if (!data) this.error = 'Recipe not found.';
+      else this.recipe = data;
       this.loading = false;
     },
 
     async del() {
       if (!confirm(`Delete "${this.recipe.title}"? This can't be undone.`)) return;
-      try {
-        await api.delete(`/api/recipes/${this.recipe.id}`);
+      const { error } = await supabase.from('recipes').delete().eq('id', this.recipe.id);
+      if (error) {
+        Alpine.store('ui').showToast('Delete failed: ' + error.message);
+      } else {
         window.location.href = '/';
-      } catch (e) {
-        Alpine.store('ui').showToast('Delete failed: ' + (e.message || ''));
       }
     },
   };
