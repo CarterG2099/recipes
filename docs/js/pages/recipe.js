@@ -99,6 +99,12 @@ window.recipePage = function recipePage() {
         }
       } catch (_) { /* notifications unavailable */ }
     },
+    bumpTimer(id, secs = 60) {
+      const t = this.timers.find((x) => x.id === id);
+      if (!t) return;
+      t.endsAt += secs * 1000;
+      t.remaining += secs;
+    },
     stopTimer(id) {
       this.timers = this.timers.filter((t) => t.id !== id);
       if (!this.timers.length && this._timerInt) { clearInterval(this._timerInt); this._timerInt = null; }

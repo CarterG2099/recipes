@@ -153,6 +153,7 @@
         <div class="timer-pill">
           <span class="timer-label" x-text="t.label"></span>
           <strong x-text="clock(t.remaining)"></strong>
+          <button class="timer-add" @click="bumpTimer(t.id)">+1 min</button>
           <button class="timer-stop" @click="stopTimer(t.id)" aria-label="Stop timer">✕</button>
         </div>
       </template>
