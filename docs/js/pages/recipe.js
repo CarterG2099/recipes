@@ -17,6 +17,18 @@ function beep() {
   } catch (_) { /* audio not allowed */ }
 }
 
+const IS_ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
+// Open the Android system Clock with a timer preset to `seconds` — a real OS
+// timer that rings even if the app is closed. (No equivalent exists on iOS.)
+function openAndroidTimer(seconds, label) {
+  const msg = encodeURIComponent(`${label ? label + ' — ' : ''}Mom's Kitchen`);
+  window.location.href =
+    `intent:#Intent;action=android.intent.action.SET_TIMER;` +
+    `i.android.intent.extra.alarm.LENGTH=${seconds};` +
+    `S.android.intent.extra.alarm.MESSAGE=${msg};` +
+    `B.android.intent.extra.alarm.SKIP_UI=false;end`;
+}
+
 window.recipePage = function recipePage() {
   return {
     recipe: null,
@@ -75,6 +87,7 @@ window.recipePage = function recipePage() {
     // sleep / app-switch (where setInterval pauses): we recompute from the clock
     // and fire anything that elapsed while away the moment we're visible again.
     startTimer(seconds, label) {
+      if (IS_ANDROID) { openAndroidTimer(seconds, label); return; } // hand off to the system Clock
       this.timers.push({ id: this._tid++, label, remaining: seconds, endsAt: Date.now() + seconds * 1000 });
       if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission().catch(() => {});
