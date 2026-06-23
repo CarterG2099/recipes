@@ -17,3 +17,9 @@ supabase/.temp/
 # Local test files
 *.pdf
 *.PDF
+
+# Node / Playwright (dev only)
+node_modules/
+playwright-report/
+test-results/
+.playwright/
