@@ -14,14 +14,6 @@ window.recipePage = function recipePage() {
       return new URLSearchParams(window.location.search).get('id');
     },
 
-    // Return to wherever the visitor came from (keeping their search/scroll);
-    // fall back to the recipe list if they arrived via a direct link.
-    goBack() {
-      const cameFromSite = document.referrer && new URL(document.referrer).origin === window.location.origin;
-      if (cameFromSite && window.history.length > 1) window.history.back();
-      else window.location.href = '/';
-    },
-
     get totalTime() {
       if (!this.recipe) return 0;
       return (this.recipe.prep_time_minutes || 0) + (this.recipe.cook_time_minutes || 0);

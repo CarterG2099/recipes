@@ -34,7 +34,7 @@
   </header>
 
   <main class="page-content" x-data="recipePage()" x-init="init()">
-    <a class="btn btn-ghost btn-sm" href="/" @click.prevent="goBack()" style="margin-bottom:var(--space-6);">← Back</a>
+    <a class="btn btn-ghost btn-sm" href="/" style="margin-bottom:var(--space-6);">← All recipes</a>
 
     <div x-show="loading" style="display:flex; justify-content:center; padding:4rem;"><div class="spinner"></div></div>
     <div x-show="!loading && error" class="empty-state" x-text="error"></div>
