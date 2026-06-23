@@ -139,13 +139,16 @@ export function fmtClock(s) {
 
 /** Filter + sort the recipe list for the browse page. */
 export function filterRecipes(all, { search = '', activeTags = [], favoritesOnly = false, sort = 'oldest' } = {}) {
-  const q = String(search).trim().toLowerCase();
+  // Multi-term AND search: every whitespace-separated term must appear somewhere
+  // (title, description, ingredients, or tags), in any order. "flour sugar" finds
+  // recipes containing both.
+  const terms = String(search).toLowerCase().split(/\s+/).filter(Boolean);
   let list = (all || []).filter((r) => {
     if (favoritesOnly && !r.is_favorite) return false;
     if (activeTags.length && !activeTags.every((t) => (r.tags || []).includes(t))) return false;
-    if (!q) return true;
+    if (!terms.length) return true;
     const hay = [r.title || '', r.description || '', ...(r.ingredients || []), ...(r.tags || [])].join(' ').toLowerCase();
-    return hay.includes(q);
+    return terms.every((t) => hay.includes(t));
   });
   if (sort === 'az') list = [...list].sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')));
   else if (sort === 'newest') list = [...list].reverse();

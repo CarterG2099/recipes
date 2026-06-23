@@ -180,6 +180,18 @@ test('filterRecipes: search across title, ingredients, tags (case-insensitive)',
   assert.equal(filterRecipes(SAMPLE, { search: 'zzz' }).length, 0);
 });
 
+test('filterRecipes: multi-term search is AND, order-independent, across fields', () => {
+  // both terms in the same recipe (ingredient + ingredient)
+  assert.deepEqual(filterRecipes(SAMPLE, { search: 'carrot flour' }).map((x) => x.title), ['Carrot Cake']);
+  assert.deepEqual(filterRecipes(SAMPLE, { search: 'flour carrot' }).map((x) => x.title), ['Carrot Cake']);
+  // term in title + term in tag
+  assert.deepEqual(filterRecipes(SAMPLE, { search: 'apple dessert' }).map((x) => x.title), ['Apple Pie']);
+  // terms spanning different recipes → no single recipe matches both
+  assert.equal(filterRecipes(SAMPLE, { search: 'beef dessert' }).length, 0);
+  // extra/leading/trailing whitespace is ignored
+  assert.deepEqual(filterRecipes(SAMPLE, { search: '  beef   comfort  ' }).map((x) => x.title), ['Beef Stew']);
+});
+
 test('filterRecipes: sorting', () => {
   assert.deepEqual(filterRecipes(SAMPLE, { sort: 'az' }).map((x) => x.title), ['Apple Pie', 'Beef Stew', 'Carrot Cake']);
   assert.deepEqual(filterRecipes(SAMPLE, { sort: 'newest' }).map((x) => x.title), ['Carrot Cake', 'Beef Stew', 'Apple Pie']);
