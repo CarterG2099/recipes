@@ -5,7 +5,7 @@
  */
 
 import { supabase } from '../supabase.js';
-import { fmtFrac, transform, convertTemps, parseTimers, fmtClock } from '../cooking.js';
+import { fmtFrac, transform, convertTemps, segmentStep, fmtClock } from '../cooking.js';
 
 function beep() {
   try {
@@ -49,7 +49,7 @@ window.recipePage = function recipePage() {
 
     get converted() { return (this.recipe?.ingredients || []).map((l) => transform(l, this.scale, this.system)); },
     get convertedSteps() { return (this.recipe?.instructions || []).map((s) => convertTemps(s, this.system)); },
-    get stepSegments() { return this.convertedSteps.map(parseTimers); },
+    get stepSegments() { return this.convertedSteps.map(segmentStep); },
     get scaledServings() {
       const s = this.recipe?.servings;
       return s && this.scale !== 1 ? transform(String(s), this.scale, 'us') : s;

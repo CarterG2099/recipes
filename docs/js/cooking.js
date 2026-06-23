@@ -130,6 +130,29 @@ export function parseTimers(step) {
   return segs.length ? segs : [{ text: step }];
 }
 
+const TEMP_RE = /\d{2,3}\s*°\s*[FC]?|\d{2,3}\s*degrees?(?:\s*(?:fahrenheit|celsius|F|C))?/gi;
+function splitTemps(text) {
+  const out = []; let last = 0, m; TEMP_RE.lastIndex = 0;
+  while ((m = TEMP_RE.exec(text)) !== null) {
+    if (m[0].length === 0) { TEMP_RE.lastIndex++; continue; }
+    if (m.index > last) out.push({ text: text.slice(last, m.index) });
+    out.push({ temp: m[0].trim() });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push({ text: text.slice(last) });
+  return out.length ? out : [{ text }];
+}
+
+/** Split a step into {text}, {timer,label} (tappable), and {temp} (highlight) segments. */
+export function segmentStep(step) {
+  const out = [];
+  for (const seg of parseTimers(step)) {
+    if (seg.timer != null) out.push(seg);
+    else out.push(...splitTemps(seg.text));
+  }
+  return out.length ? out : [{ text: step == null ? '' : String(step) }];
+}
+
 /** mm:ss for a non-negative second count. */
 export function fmtClock(s) {
   s = Math.max(0, Math.floor(s || 0));

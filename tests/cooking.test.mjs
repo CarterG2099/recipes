@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  parseQty, fmtFrac, transform, convertTemps, parseTimers, fmtClock, filterRecipes,
+  parseQty, fmtFrac, transform, convertTemps, parseTimers, segmentStep, fmtClock, filterRecipes,
 } from '../docs/js/cooking.js';
 
 test('parseQty: integers, decimals, fractions, unicode, mixed', () => {
@@ -145,6 +145,21 @@ test('parseTimers: does NOT match unit letters inside words (no false timers)', 
   assert.deepEqual(parseTimers('add 5 minced garlic cloves'), [{ text: 'add 5 minced garlic cloves' }]);
   assert.deepEqual(parseTimers('use 2 small onions'), [{ text: 'use 2 small onions' }]);
   assert.deepEqual(parseTimers(''), [{ text: '' }]);
+});
+
+test('segmentStep: detects both temps (highlight) and timers (tappable)', () => {
+  const segs = segmentStep('Bake at 350°F for 20 minutes, then rest.');
+  assert.ok(segs.some((s) => s.temp === '350°F'), 'has temp chip');
+  assert.ok(segs.some((s) => s.timer === 1200 && s.label === '20 minutes'), 'has timer chip');
+  // reassembling text/temp/timer labels reproduces the readable step
+  const joined = segs.map((s) => s.text ?? s.temp ?? s.label).join('');
+  assert.match(joined, /Bake at 350°F for 20 minutes, then rest\./);
+});
+
+test('segmentStep: plain step is a single text segment; °C detected too', () => {
+  assert.deepEqual(segmentStep('Stir until combined'), [{ text: 'Stir until combined' }]);
+  assert.ok(segmentStep('Heat oven to 175°C').some((s) => s.temp === '175°C'));
+  assert.ok(segmentStep('bake at 350 degrees').some((s) => /350 degrees/.test(s.temp || '')));
 });
 
 test('fmtClock: mm:ss formatting and bounds', () => {

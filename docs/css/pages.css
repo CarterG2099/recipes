@@ -141,6 +141,10 @@ body { background: var(--color-bg); }
 .timer-chip { display: inline-flex; align-items: center; border: none; cursor: pointer; background: var(--color-primary); color: #fff; border-radius: var(--radius-pill); padding: 1px 10px; font-size: .85em; font-family: var(--font-display); font-weight: 600; margin: 0 2px; }
 .timer-chip.lg { font-size: 1rem; padding: 6px 16px; margin-top: var(--space-3); }
 
+/* Temperature highlight (not tappable) — warm "heat" badge */
+.temp-chip { display: inline-flex; align-items: center; background: #fce3d4; color: #b4521f; border-radius: var(--radius-pill); padding: 1px 9px; font-weight: 700; white-space: nowrap; }
+.temp-chip.lg { font-size: 1rem; padding: 4px 14px; }
+
 /* Running-timers bar (fixed) */
 .timer-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: center; padding: var(--space-2); background: var(--color-surface-raised); border-top: 1px solid var(--color-border); box-shadow: var(--shadow-md); z-index: 2500; }
 .timer-pill { display: inline-flex; align-items: center; gap: var(--space-2); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-pill); padding: 4px 6px 4px 12px; font-size: var(--text-sm); }

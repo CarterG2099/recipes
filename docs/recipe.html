@@ -102,7 +102,7 @@
           <ol class="instruction-list checkable">
             <template x-for="(segs, i) in stepSegments" :key="i">
               <li :class="{ checked: checkedStep[i] }">
-                <template x-for="(seg, j) in segs" :key="j"><span><span x-show="seg.text" @click="toggleStep(i)" x-text="seg.text"></span><button x-show="seg.timer" class="timer-chip" @click.stop="startTimer(seg.timer, seg.label)" x-text="'⏱ ' + seg.label"></button></span></template>
+                <template x-for="(seg, j) in segs" :key="j"><span><span x-show="seg.text" @click="toggleStep(i)" x-text="seg.text"></span><button x-show="seg.timer" class="timer-chip" @click.stop="startTimer(seg.timer, seg.label)" x-text="'⏱ ' + seg.label"></button><span x-show="seg.temp" class="temp-chip" @click="toggleStep(i)" x-text="seg.temp"></span></span></template>
               </li>
             </template>
           </ol>
@@ -124,7 +124,7 @@
         <button class="btn btn-ghost btn-sm" @click="exitCook()">✕ Done</button>
       </div>
       <div class="cook-step">
-        <template x-for="(seg, j) in (stepSegments[cookStep] || [])" :key="j"><span><span x-show="seg.text" x-text="seg.text"></span><button x-show="seg.timer" class="timer-chip lg" @click="startTimer(seg.timer, seg.label)" x-text="'⏱ ' + seg.label"></button></span></template>
+        <template x-for="(seg, j) in (stepSegments[cookStep] || [])" :key="j"><span><span x-show="seg.text" x-text="seg.text"></span><button x-show="seg.timer" class="timer-chip lg" @click="startTimer(seg.timer, seg.label)" x-text="'⏱ ' + seg.label"></button><span x-show="seg.temp" class="temp-chip lg" x-text="seg.temp"></span></span></template>
       </div>
       <div class="cook-nav">
         <button class="btn btn-ghost" @click="cookPrev()" :disabled="cookStep === 0">← Prev</button>
