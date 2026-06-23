@@ -29,10 +29,14 @@ const PROMPT =
   "obvious abbreviations (PB -> peanut butter, tsp, tbsp). Do not invent steps, " +
   "times, or servings.\n\n" +
   "Return ONLY a JSON object with exactly these keys:\n" +
-  '{"title": string, "ingredients": [string], "instructions": [string], ' +
+  '{"title": string, ' +
+  '"ingredients": [ {"qty": number|null, "unit": string|null, "item": string} ], ' +
+  '"instructions": [string], ' +
   '"prep_time_minutes": number|null, "cook_time_minutes": number|null, ' +
   '"servings": string|null}\n' +
-  "Use null or [] for anything not present in the recipe.";
+  "For each ingredient: qty is a decimal (0.5 for ½, 1.5 for 1½) or null; unit is " +
+  "one of cup, tbsp, tsp, oz, lb, ml, l, g, kg, clove, can, pinch — or null; item is " +
+  "the food itself (no amount/unit). Use null or [] for anything not present.";
 
 function stripFences(s: string): string {
   return s.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
@@ -129,20 +133,46 @@ Deno.serve(async (req) => {
     return json({ error: "Couldn't read a recipe from that file." }, 502);
   }
 
+  // Normalize ingredients into structured rows, tolerating either the new object
+  // shape {qty,unit,item} or a plain string (older prompt / model drift).
+  const fmtNum = (n: number) => {
+    const map: Record<string, string> = { "0.5": "1/2", "0.25": "1/4", "0.75": "3/4", "0.33": "1/3", "0.67": "2/3" };
+    if (Number.isInteger(n)) return String(n);
+    const w = Math.floor(n), f = +(n - w).toFixed(2);
+    const fr = map[String(f)];
+    return fr ? (w ? `${w} ${fr}` : fr) : String(Math.round(n * 100) / 100);
+  };
+  const structToText = (o: { qty: number | null; unit: string | null; item: string }) => {
+    if (o.qty == null) return o.item;
+    return `${fmtNum(o.qty)}${o.unit ? " " + o.unit : ""} ${o.item}`.trim();
+  };
+  const struct = (Array.isArray(extracted?.ingredients) ? extracted!.ingredients as unknown[] : [])
+    .map((o) => {
+      if (typeof o === "string") return { qty: null, unit: null, item: o.trim() };
+      const r = o as Record<string, unknown>;
+      return {
+        qty: typeof r.qty === "number" ? r.qty : null,
+        unit: r.unit ? String(r.unit).toLowerCase() : null,
+        item: String(r.item ?? "").trim(),
+      };
+    })
+    .filter((o) => o.item || o.qty != null);
+
+  const instructions = Array.isArray(extracted?.instructions)
+    ? (extracted!.instructions as unknown[]).map((s) => String(s).trim()).filter(Boolean)
+    : [];
+
   const draft: Record<string, unknown> = {
     title: String(extracted?.title ?? "").trim(),
-    ingredients: Array.isArray(extracted?.ingredients)
-      ? (extracted!.ingredients as unknown[]).map((s) => String(s).trim()).filter(Boolean)
-      : [],
-    instructions: Array.isArray(extracted?.instructions)
-      ? (extracted!.instructions as unknown[]).map((s) => String(s).trim()).filter(Boolean)
-      : [],
+    ingredients_struct: struct,
+    ingredients: struct.map(structToText), // derived text for the live/text path
+    instructions,
     prep_time_minutes: typeof extracted?.prep_time_minutes === "number" ? extracted!.prep_time_minutes : null,
     cook_time_minutes: typeof extracted?.cook_time_minutes === "number" ? extracted!.cook_time_minutes : null,
     servings: extracted?.servings != null ? String(extracted!.servings).trim() : null,
     tags: [],
   };
-  if (!(draft.ingredients as string[]).length && !(draft.instructions as string[]).length) {
+  if (!struct.length && !instructions.length) {
     draft.warning = "Couldn't read a clear recipe from that file — try a sharper, well-lit photo, or enter it by hand.";
   }
   return json(draft);

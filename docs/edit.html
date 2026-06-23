@@ -95,16 +95,22 @@
         </div>
       </div>
 
-      <!-- Ingredients -->
+      <!-- Ingredients (structured: amount · unit · item) -->
       <div class="form-section">
         <h2 class="recipe-section-title">Ingredients</h2>
         <template x-for="(ing, i) in form.ingredients" :key="i">
-          <div class="line-row">
-            <input class="input" type="text" x-model="form.ingredients[i]" placeholder="1 cup flour">
+          <div class="ing-row">
+            <input class="input ing-qty" type="text" x-model="ing.qty" placeholder="1" aria-label="Amount">
+            <select class="select ing-unit" x-model="ing.unit" aria-label="Unit">
+              <template x-for="opt in unitOptions" :key="opt.value">
+                <option :value="opt.value" x-text="opt.label"></option>
+              </template>
+            </select>
+            <input class="input ing-item" type="text" x-model="ing.item" placeholder="flour" aria-label="Ingredient">
             <button class="btn btn-ghost btn-icon" @click="form.ingredients.splice(i, 1)" title="Remove">✕</button>
           </div>
         </template>
-        <button class="btn btn-ghost btn-sm" @click="form.ingredients.push('')">+ Add ingredient</button>
+        <button class="btn btn-ghost btn-sm" @click="form.ingredients.push({ qty: '', unit: '', item: '' })">+ Add ingredient</button>
       </div>
 
       <!-- Instructions -->

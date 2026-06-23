@@ -139,6 +139,14 @@ body { background: var(--color-bg); }
 .import-tile .tile-hint { font-size: var(--text-xs); color: var(--color-text-muted); line-height: 1.4; }
 .import-warning { background: #fff3cd; border: 1px solid #ffe08a; color: #6b5300; border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); font-size: var(--text-sm); margin-top: var(--space-3); }
 .line-row { display: flex; gap: var(--space-2); margin-bottom: var(--space-2); align-items: flex-start; }
+.ing-row { display: flex; gap: var(--space-2); margin-bottom: var(--space-2); align-items: center; }
+.ing-row .ing-qty { flex: 0 0 64px; }
+.ing-row .ing-unit { flex: 0 0 96px; }
+.ing-row .ing-item { flex: 1 1 auto; }
+@media (max-width: 480px) {
+  .ing-row { flex-wrap: wrap; }
+  .ing-row .ing-item { flex: 1 1 100%; order: 3; }
+}
 .line-row textarea, .line-row .input { flex: 1; }
 .field-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
 @media (max-width: 560px) { .field-grid { grid-template-columns: 1fr; } }

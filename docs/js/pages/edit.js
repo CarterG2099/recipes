@@ -1,16 +1,16 @@
 /**
- * edit.js — create/edit a recipe.
- *   • URL import   → import-url Edge Function (JSON-LD)
- *   • PDF import   → import-photo Edge Function (Gemini reads the PDF directly)
- *   • Photo import → downscales in-browser, uploads to Storage, AND reads via import-photo (Gemini)
- * Writes go through supabase-js and are enforced by the editor RLS policies.
- * The page redirects non-editors away (UX only; RLS is the real boundary).
+ * edit.js — create/edit a recipe (metric-conversion branch).
+ * Ingredients are structured rows {qty, unit, item}. On save we store both
+ * `ingredients_struct` (for exact scaling/conversion) and a derived `ingredients`
+ * text array (for search + the live/main text path). Imports prefill structured
+ * rows (from the function's ingredients_struct, or by parsing its text).
  */
 
 import { supabase } from '../supabase.js';
+import { UNIT_OPTIONS, parseIngredient, parseQty, fmtFrac, structToText } from '../units.js';
 
 const BUCKET = 'recipe-images';
-const MAX_EDGE = 1600;   // px — plenty for reading a card; keeps uploads small on mobile
+const MAX_EDGE = 1600;
 const JPEG_QUALITY = 0.85;
 
 function emptyForm() {
@@ -18,9 +18,24 @@ function emptyForm() {
     title: '', description: '',
     prep_time_minutes: null, cook_time_minutes: null,
     servings: '', tagsText: '',
-    ingredients: [''], instructions: [''],
+    ingredients: [{ qty: '', unit: '', item: '' }],
+    instructions: [''],
     source_url: '', image_url: null,
   };
+}
+
+// Build editable rows from a structured array or legacy text lines.
+function rowsFromStruct(struct) {
+  return (struct || []).map((i) => {
+    const qty = i.qty ?? i.amount ?? null;
+    return { qty: qty == null ? '' : fmtFrac(qty), unit: i.unit || '', item: (i.item || '').trim() };
+  });
+}
+function rowsFromText(lines) {
+  return (lines || []).map((l) => {
+    const p = parseIngredient(l);
+    return { qty: p.qty == null ? '' : fmtFrac(p.qty), unit: p.unit || '', item: p.item };
+  });
 }
 
 function blobToBase64(blob) {
@@ -31,48 +46,30 @@ function blobToBase64(blob) {
     reader.readAsDataURL(blob);
   });
 }
-
-// Shrink a phone photo and bake in EXIF rotation. Returns { blob, base64, mimeType }.
-// Non-images (shouldn't happen here) pass through untouched.
 async function prepImage(file) {
-  if (!file.type.startsWith('image/')) {
-    return { blob: file, base64: await blobToBase64(file), mimeType: file.type };
-  }
+  if (!file.type.startsWith('image/')) return { blob: file, base64: await blobToBase64(file), mimeType: file.type };
   let bitmap;
-  try {
-    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-  } catch (_) {
-    bitmap = await createImageBitmap(file);
-  }
+  try { bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+  catch (_) { bitmap = await createImageBitmap(file); }
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
-  const w = Math.round(bitmap.width * scale);
-  const h = Math.round(bitmap.height * scale);
+  const w = Math.round(bitmap.width * scale), h = Math.round(bitmap.height * scale);
   const canvas = document.createElement('canvas');
   canvas.width = w; canvas.height = h;
   canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
-  const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', JPEG_QUALITY));
+  const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', JPEG_QUALITY));
   return { blob, base64: await blobToBase64(blob), mimeType: 'image/jpeg' };
 }
-
 async function uploadBlob(blob, ext, contentType) {
   const path = `${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType });
   if (error) throw new Error(error.message);
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
-
-// Send a file (image or PDF) to the Gemini-backed reader and return its draft.
 async function readWithGemini(base64, mimeType) {
-  const { data, error } = await supabase.functions.invoke('import-photo', {
-    body: { imageBase64: base64, mimeType },
-  });
+  const { data, error } = await supabase.functions.invoke('import-photo', { body: { imageBase64: base64, mimeType } });
   if (error) {
-    // supabase-js gives a generic message on non-2xx; dig out our real detail.
     let detail = error.message || 'request failed';
-    try {
-      const body = await error.context.json();
-      if (body?.error) detail = body.error;
-    } catch (_) { /* body wasn't JSON */ }
+    try { const b = await error.context.json(); if (b?.error) detail = b.error; } catch (_) {}
     throw new Error(detail);
   }
   if (data?.error) throw new Error(data.error);
@@ -82,6 +79,7 @@ async function readWithGemini(base64, mimeType) {
 window.editPage = function editPage() {
   return {
     form: emptyForm(),
+    unitOptions: UNIT_OPTIONS,
     importUrlValue: '',
     importing: false,
     importWarning: '',
@@ -104,13 +102,16 @@ window.editPage = function editPage() {
       const { data, error } = await supabase.from('recipes').select('*').eq('id', this.id).maybeSingle();
       if (error || !data) { this.error = "Couldn't load this recipe for editing."; return; }
 
-      // Non-admins may only edit recipes they created (RLS also enforces this).
       const me = (session.user.email || '').toLowerCase();
       if (!admin && (data.created_by || '').toLowerCase() !== me) {
         Alpine.store('ui').showToast('You can only edit recipes you added.');
         window.location.href = `/recipe.html?id=${this.id}`;
         return;
       }
+
+      const rows = Array.isArray(data.ingredients_struct) && data.ingredients_struct.length
+        ? rowsFromStruct(data.ingredients_struct)
+        : rowsFromText(data.ingredients);
       this.form = {
         title: data.title || '',
         description: data.description || '',
@@ -118,7 +119,7 @@ window.editPage = function editPage() {
         cook_time_minutes: data.cook_time_minutes ?? null,
         servings: data.servings || '',
         tagsText: (data.tags || []).join(', '),
-        ingredients: (data.ingredients || []).length ? [...data.ingredients] : [''],
+        ingredients: rows.length ? rows : [{ qty: '', unit: '', item: '' }],
         instructions: (data.instructions || []).length ? [...data.instructions] : [''],
         source_url: data.source_url || '',
         image_url: data.image_url || null,
@@ -133,7 +134,10 @@ window.editPage = function editPage() {
       if (draft.cook_time_minutes != null) this.form.cook_time_minutes = draft.cook_time_minutes;
       if (draft.servings) this.form.servings = draft.servings;
       if (draft.source_url) this.form.source_url = draft.source_url;
-      if ((draft.ingredients || []).length) this.form.ingredients = [...draft.ingredients];
+      const rows = Array.isArray(draft.ingredients_struct) && draft.ingredients_struct.length
+        ? rowsFromStruct(draft.ingredients_struct)
+        : rowsFromText(draft.ingredients);
+      if (rows.length) this.form.ingredients = rows;
       if ((draft.instructions || []).length) this.form.instructions = [...draft.instructions];
       if ((draft.tags || []).length) this.form.tagsText = draft.tags.join(', ');
     },
@@ -148,9 +152,7 @@ window.editPage = function editPage() {
         if (data?.error) throw new Error(data.error);
         this._applyDraft(data);
         Alpine.store('ui').showToast('Imported — review and save.');
-      } catch (e) {
-        this.error = 'Import failed: ' + (e.message || '');
-      }
+      } catch (e) { this.error = 'Import failed: ' + (e.message || ''); }
       this.importing = false;
     },
 
@@ -162,14 +164,11 @@ window.editPage = function editPage() {
         const base64 = await blobToBase64(file);
         this._applyDraft(await readWithGemini(base64, file.type || 'application/pdf'));
         Alpine.store('ui').showToast('Read from PDF — review and save.');
-      } catch (e) {
-        this.error = 'PDF import failed: ' + (e.message || '');
-      }
+      } catch (e) { this.error = 'PDF import failed: ' + (e.message || ''); }
       this.importing = false;
       if (this.$refs.pdf) this.$refs.pdf.value = '';
     },
 
-    // Snap/upload a recipe-card photo: shrink it, store it, AND read it with Gemini.
     async importPhoto(event) {
       const file = event.target.files?.[0];
       if (!file) return;
@@ -179,14 +178,11 @@ window.editPage = function editPage() {
         this.form.image_url = await uploadBlob(blob, 'jpg', mimeType);
         this._applyDraft(await readWithGemini(base64, mimeType));
         Alpine.store('ui').showToast('Read from photo — review and save.');
-      } catch (e) {
-        this.error = 'Photo import failed: ' + (e.message || '');
-      }
+      } catch (e) { this.error = 'Photo import failed: ' + (e.message || ''); }
       this.importing = false;
       if (this.$refs.photo) this.$refs.photo.value = '';
     },
 
-    // Attach/replace the stored photo without re-reading the recipe.
     async attachPhoto(event) {
       const file = event.target.files?.[0];
       if (!file) return;
@@ -195,14 +191,15 @@ window.editPage = function editPage() {
         const { blob, mimeType } = await prepImage(file);
         this.form.image_url = await uploadBlob(blob, 'jpg', mimeType);
         Alpine.store('ui').showToast('Photo added.');
-      } catch (e) {
-        this.error = 'Upload failed: ' + (e.message || '');
-      }
+      } catch (e) { this.error = 'Upload failed: ' + (e.message || ''); }
       this.importing = false;
       if (this.$refs.attach) this.$refs.attach.value = '';
     },
 
     _payload() {
+      const struct = this.form.ingredients
+        .map((r) => ({ qty: parseQty(r.qty), unit: r.unit || null, item: (r.item || '').trim() }))
+        .filter((r) => r.item || r.qty != null);
       return {
         title: this.form.title.trim(),
         description: this.form.description.trim() || null,
@@ -211,9 +208,10 @@ window.editPage = function editPage() {
         servings: this.form.servings.trim() || null,
         source_url: this.form.source_url.trim() || null,
         image_url: this.form.image_url || null,
-        tags: this.form.tagsText.split(',').map(t => t.trim()).filter(Boolean),
-        ingredients: this.form.ingredients.map(s => s.trim()).filter(Boolean),
-        instructions: this.form.instructions.map(s => s.trim()).filter(Boolean),
+        tags: this.form.tagsText.split(',').map((t) => t.trim()).filter(Boolean),
+        ingredients_struct: struct,
+        ingredients: struct.map(structToText), // derived text for search + live path
+        instructions: this.form.instructions.map((s) => s.trim()).filter(Boolean),
       };
     },
 

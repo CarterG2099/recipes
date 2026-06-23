@@ -11,7 +11,8 @@ create table if not exists public.recipes (
     id                bigint generated always as identity primary key,
     title             text not null,
     description       text,
-    ingredients       jsonb not null default '[]'::jsonb,   -- array of strings
+    ingredients       jsonb not null default '[]'::jsonb,   -- array of strings (derived; search + live path)
+    ingredients_struct jsonb,                                -- [{qty,unit,item}] for exact scaling/conversion (branch)
     instructions      jsonb not null default '[]'::jsonb,   -- array of strings (steps)
     prep_time_minutes integer,
     cook_time_minutes integer,
