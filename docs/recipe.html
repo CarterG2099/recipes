@@ -68,20 +68,26 @@
       <div class="recipe-columns">
         <section>
           <h2 class="recipe-section-title">Ingredients</h2>
-          <div class="scale-control">
-            <span class="scale-label-text">Batch</span>
-            <button class="btn btn-ghost btn-icon" @click="decScale()" :disabled="scale <= 0.5" aria-label="Less">−</button>
-            <span class="scale-value" x-text="scaleLabel"></span>
-            <button class="btn btn-ghost btn-icon" @click="incScale()" aria-label="More">+</button>
+          <div class="ingredient-controls">
+            <div class="scale-control">
+              <span class="scale-label-text">Batch</span>
+              <button class="btn btn-ghost btn-icon" @click="decScale()" :disabled="scale <= 0.5" aria-label="Less">−</button>
+              <span class="scale-value" x-text="scaleLabel"></span>
+              <button class="btn btn-ghost btn-icon" @click="incScale()" aria-label="More">+</button>
+            </div>
+            <div class="unit-toggle">
+              <button class="btn btn-sm" :class="system === 'us' ? 'btn-primary' : 'btn-ghost'" @click="system = 'us'">US</button>
+              <button class="btn btn-sm" :class="system === 'metric' ? 'btn-primary' : 'btn-ghost'" @click="system = 'metric'">Metric</button>
+            </div>
           </div>
           <ul class="ingredient-list">
-            <template x-for="(ing, i) in scaledIngredients" :key="i"><li x-text="ing"></li></template>
+            <template x-for="(ing, i) in converted" :key="i"><li x-text="ing"></li></template>
           </ul>
         </section>
         <section>
           <h2 class="recipe-section-title">Instructions</h2>
           <ol class="instruction-list">
-            <template x-for="(step, i) in (recipe?.instructions || [])" :key="i"><li x-text="step"></li></template>
+            <template x-for="(step, i) in convertedSteps" :key="i"><li x-text="step"></li></template>
           </ol>
         </section>
       </div>

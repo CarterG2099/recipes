@@ -101,9 +101,13 @@ body { background: var(--color-bg); }
 .recipe-columns { display: grid; grid-template-columns: 1fr 1.6fr; gap: var(--space-8); }
 @media (max-width: 640px) { .recipe-columns { grid-template-columns: 1fr; gap: var(--space-6); } }
 .recipe-section-title { font-family: var(--font-display); font-size: var(--text-sm); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--color-primary); margin: 0 0 var(--space-3); }
+.ingredient-controls {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+.unit-toggle { display: inline-flex; gap: var(--space-1); }
 .scale-control {
   display: flex; align-items: center; gap: var(--space-2);
-  margin-bottom: var(--space-3);
 }
 .scale-control .scale-label-text { font-size: var(--text-sm); color: var(--color-text-muted); margin-right: var(--space-1); }
 .scale-control .btn-icon {
