@@ -75,7 +75,10 @@ Deno.serve(async (req) => {
   // Retry each model a couple of times, then fall back to lighter models that
   // usually have spare capacity. 404 (model unavailable) / 429 (quota) also fall
   // through to the next model; a hard 4xx stops everything.
-  const MODELS = [...new Set([MODEL, "gemini-3.5-flash-lite", "gemini-flash-latest"])];
+  const MODELS = [...new Set([
+    MODEL, "gemini-3.5-flash-lite", "gemini-flash-latest",
+    "gemini-2.5-flash", "gemini-2.5-flash-lite",
+  ])];
   let resp: Response | null = null;
   let lastStatus = 0;
   let lastDetail = "";
