@@ -6,8 +6,9 @@
 // from the GEMINI_API_KEY function secret and never exposed to the browser.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-// Override via the GEMINI_MODEL secret if Google renames the free-tier model.
-const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-3.5-flash";
+// Primary model (best quality when it has capacity); override via GEMINI_MODEL.
+// If it's overloaded (503), we fall back through the MODELS list below.
+const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-flash-latest";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -76,8 +77,8 @@ Deno.serve(async (req) => {
   // usually have spare capacity. 404 (model unavailable) / 429 (quota) also fall
   // through to the next model; a hard 4xx stops everything.
   const MODELS = [...new Set([
-    MODEL, "gemini-3.5-flash-lite", "gemini-flash-latest",
-    "gemini-2.5-flash", "gemini-2.5-flash-lite",
+    MODEL, "gemini-2.5-flash", "gemini-2.5-flash-lite",
+    "gemini-3.5-flash", "gemini-3.5-flash-lite",
   ])];
   let resp: Response | null = null;
   let lastStatus = 0;
@@ -85,8 +86,8 @@ Deno.serve(async (req) => {
 
   for (const model of MODELS) {
     let hardError = false;
-    for (let attempt = 0; attempt < 3 && !resp; attempt++) {
-      if (attempt > 0) await new Promise((r) => setTimeout(r, 600 * attempt));
+    for (let attempt = 0; attempt < 2 && !resp; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 500 * attempt));
       let r: Response;
       try {
         r = await fetch(
