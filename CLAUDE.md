@@ -52,7 +52,7 @@ nothing is auto-saved.
 - PDF: in-browser via pdf.js (loaded from jsdelivr). Heuristic Ingredients/
   Instructions header split; text PDFs only — image/scanned PDFs yield a warning.
 - Photo (incl. handwritten cards): `import-photo` Edge Function calls the Google
-  **Gemini** API (free tier, `gemini-2.0-flash`) with a JSON response schema. The
+  **Gemini** API (free tier, `gemini-3.5-flash`, set via the GEMINI_MODEL secret) with a JSON response schema. The
   `GEMINI_API_KEY` is a function secret (Supabase dashboard), never in the browser.
   `importPhoto()` also uploads the photo to Storage and sets it as `image_url`, so
   one action both reads the card and keeps it.

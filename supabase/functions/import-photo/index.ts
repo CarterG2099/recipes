@@ -6,7 +6,8 @@
 // from the GEMINI_API_KEY function secret and never exposed to the browser.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const MODEL = "gemini-2.0-flash";
+// Override via the GEMINI_MODEL secret if Google renames the free-tier model.
+const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-3.5-flash";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
