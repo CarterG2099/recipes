@@ -19,6 +19,8 @@ create table if not exists public.recipes (
     tags              text[] not null default '{}',
     source_url        text,
     image_url         text,                                 -- photo of the recipe/card (Supabase Storage)
+    is_favorite       boolean not null default false,        -- shared "family favorites"
+    notes             text,                                  -- family notes/tweaks
     created_by        text,
     created_at        timestamptz not null default now(),
     updated_at        timestamptz not null default now()
@@ -93,6 +95,16 @@ as $$
 $$;
 revoke all on function public.is_admin() from public;
 grant execute on function public.is_admin() to anon, authenticated;
+
+-- Any editor can (un)favorite any recipe — favorites are a shared family list, so
+-- this bypasses the owner-only update policy via SECURITY DEFINER.
+create or replace function public.set_favorite(rid bigint, val boolean)
+returns void language sql security definer set search_path = '' as $$
+  update public.recipes set is_favorite = val
+  where id = rid and public.is_editor();
+$$;
+revoke all on function public.set_favorite(bigint, boolean) from public;
+grant execute on function public.set_favorite(bigint, boolean) to authenticated;
 
 -- Admins manage the allowlist directly (RLS-gated). is_editor()/is_admin() are
 -- SECURITY DEFINER so they bypass these policies and keep working.

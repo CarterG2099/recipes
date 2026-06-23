@@ -51,8 +51,9 @@ body { background: var(--color-bg); }
 .auth-notice--error { background: #fbe3df; border: 1px solid #f0bcb2; color: #8a2f1d; }
 
 /* ── Browse: search + tag filter ── */
-.browse-search { margin-bottom: var(--space-4); }
-.browse-search .input { padding: var(--space-3) var(--space-4); border-radius: var(--radius-pill); }
+.browse-toolbar { display: flex; gap: var(--space-2); margin-bottom: var(--space-4); }
+.browse-toolbar .input { flex: 1 1 auto; padding: var(--space-3) var(--space-4); border-radius: var(--radius-pill); }
+.browse-toolbar .browse-sort { flex: 0 0 auto; width: auto; border-radius: var(--radius-pill); }
 .tag-filter-row { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-6); }
 .tag-chip {
   border: 1px solid transparent; background: var(--color-accent-soft); color: #9a6b18;
@@ -123,6 +124,36 @@ body { background: var(--color-bg); }
 .instruction-list li { padding: var(--space-2) 0; line-height: 1.6; }
 .cardtags { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .cardtags .badge { background: var(--color-accent-soft); color: #9a6b18; }
+
+/* Tap-to-check */
+.ingredient-list.checkable li, .instruction-list.checkable li span { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ingredient-list.checkable li.checked, .instruction-list.checkable li.checked { color: var(--color-text-muted); text-decoration: line-through; }
+
+/* Notes callout */
+.recipe-notes { background: var(--color-accent-soft); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-6); }
+.recipe-notes .notes-label { font-family: var(--font-display); font-weight: 700; font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .06em; color: #9a6b18; }
+.recipe-notes p { margin: 4px 0 0; line-height: 1.5; }
+
+/* Cook-mode / keep-awake action row */
+.cook-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-6); }
+
+/* Tappable timer chips inside steps */
+.timer-chip { display: inline-flex; align-items: center; border: none; cursor: pointer; background: var(--color-primary); color: #fff; border-radius: var(--radius-pill); padding: 1px 10px; font-size: .85em; font-family: var(--font-display); font-weight: 600; margin: 0 2px; }
+.timer-chip.lg { font-size: 1rem; padding: 6px 16px; margin-top: var(--space-3); }
+
+/* Running-timers bar (fixed) */
+.timer-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: center; padding: var(--space-2); background: var(--color-surface-raised); border-top: 1px solid var(--color-border); box-shadow: var(--shadow-md); z-index: 2500; }
+.timer-pill { display: inline-flex; align-items: center; gap: var(--space-2); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-pill); padding: 4px 6px 4px 12px; font-size: var(--text-sm); }
+.timer-pill strong { font-family: var(--font-mono); }
+.timer-pill .timer-label { max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timer-stop { border: none; background: var(--color-control); border-radius: 50%; width: 22px; height: 22px; cursor: pointer; line-height: 1; }
+
+/* Cook mode (full-screen, big text) */
+.cook-overlay { position: fixed; inset: 0; background: var(--color-bg); z-index: 2000; display: flex; flex-direction: column; padding: var(--space-6); }
+.cook-top { display: flex; justify-content: space-between; align-items: center; color: var(--color-text-muted); font-family: var(--font-display); font-weight: 600; }
+.cook-step { flex: 1; display: flex; flex-wrap: wrap; gap: 4px; align-content: center; justify-content: center; text-align: center; font-size: clamp(1.4rem, 5vw, 2.2rem); line-height: 1.5; padding: var(--space-6) var(--space-4); overflow-y: auto; }
+.cook-nav { display: flex; gap: var(--space-4); }
+.cook-nav .btn { flex: 1; justify-content: center; padding: var(--space-4); font-size: var(--text-lg); }
 
 /* ── Edit form ── */
 .edit-form { max-width: 760px; margin: 0 auto; }

@@ -44,6 +44,8 @@
       <div style="display:flex; justify-content:space-between; gap:var(--space-4); align-items:flex-start; flex-wrap:wrap;">
         <h1 x-text="recipe?.title"></h1>
         <div class="header-actions" style="flex:0 0 auto;">
+          <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isEditor" @click="toggleFavorite()"
+            x-text="recipe?.is_favorite ? '⭐ Favorited' : '☆ Favorite'"></button>
           <button class="btn btn-ghost btn-sm" @click="share()">↗ Share</button>
           <a class="btn btn-ghost btn-sm" x-cloak x-show="canEdit" :href="`/edit.html?id=${recipe?.id}`">Edit</a>
           <button class="btn btn-danger btn-sm" x-cloak x-show="canEdit" @click="del()">Delete</button>
@@ -65,9 +67,16 @@
         <template x-for="tag in (recipe?.tags || [])" :key="tag"><span class="badge" x-text="tag"></span></template>
       </div>
 
-      <button class="btn btn-sm" x-show="wakeSupported" :class="keepAwake ? 'btn-primary' : 'btn-ghost'"
-        @click="toggleWake()" style="margin-bottom:var(--space-6);"
-        x-text="keepAwake ? '🔆 Screen staying on' : '🔅 Keep screen on'"></button>
+      <div class="recipe-notes" x-show="recipe?.notes" x-cloak>
+        <span class="notes-label">Notes</span>
+        <p x-text="recipe?.notes"></p>
+      </div>
+
+      <div class="cook-actions">
+        <button class="btn btn-primary btn-sm" x-show="(recipe?.instructions || []).length" @click="enterCook()">👩‍🍳 Cook mode</button>
+        <button class="btn btn-sm" x-show="wakeSupported" :class="keepAwake ? 'btn-primary' : 'btn-ghost'"
+          @click="toggleWake()" x-text="keepAwake ? '🔆 Screen staying on' : '🔅 Keep screen on'"></button>
+      </div>
 
       <div class="recipe-columns">
         <section>
@@ -84,14 +93,23 @@
               <button class="btn btn-sm" :class="system === 'metric' ? 'btn-primary' : 'btn-ghost'" @click="system = 'metric'">Metric</button>
             </div>
           </div>
-          <ul class="ingredient-list">
-            <template x-for="(ing, i) in converted" :key="i"><li x-text="ing"></li></template>
+          <ul class="ingredient-list checkable">
+            <template x-for="(ing, i) in converted" :key="i">
+              <li :class="{ checked: checkedIng[i] }" @click="toggleIng(i)" x-text="ing"></li>
+            </template>
           </ul>
         </section>
         <section>
           <h2 class="recipe-section-title">Instructions</h2>
-          <ol class="instruction-list">
-            <template x-for="(step, i) in convertedSteps" :key="i"><li x-text="step"></li></template>
+          <ol class="instruction-list checkable">
+            <template x-for="(segs, i) in stepSegments" :key="i">
+              <li :class="{ checked: checkedStep[i] }">
+                <template x-for="(seg, j) in segs" :key="j">
+                  <template x-if="seg.text"><span @click="toggleStep(i)" x-text="seg.text"></span></template>
+                  <template x-if="seg.timer"><button class="timer-chip" @click.stop="startTimer(seg.timer, seg.label)" x-text="'⏱ ' + seg.label"></button></template>
+                </template>
+              </li>
+            </template>
           </ol>
         </section>
       </div>
@@ -100,6 +118,35 @@
         <a class="text-muted" :href="recipe?.source_url" target="_blank" rel="noopener noreferrer">Source ↗</a>
       </p>
     </article>
+
+    <!-- Cook mode: one big step at a time -->
+    <div class="cook-overlay" x-show="cookMode" x-cloak @keydown.escape.window="exitCook()">
+      <div class="cook-top">
+        <span x-text="`Step ${cookStep + 1} of ${convertedSteps.length}`"></span>
+        <button class="btn btn-ghost btn-sm" @click="exitCook()">✕ Done</button>
+      </div>
+      <div class="cook-step">
+        <template x-for="(seg, j) in (stepSegments[cookStep] || [])" :key="j">
+          <template x-if="seg.text"><span x-text="seg.text"></span></template>
+          <template x-if="seg.timer"><button class="timer-chip lg" @click="startTimer(seg.timer, seg.label)" x-text="'⏱ ' + seg.label"></button></template>
+        </template>
+      </div>
+      <div class="cook-nav">
+        <button class="btn btn-ghost" @click="cookPrev()" :disabled="cookStep === 0">← Prev</button>
+        <button class="btn btn-primary" @click="cookNext()" :disabled="cookStep >= convertedSteps.length - 1">Next →</button>
+      </div>
+    </div>
+
+    <!-- Active timers (fixed at the bottom) -->
+    <div class="timer-bar" x-show="timers.length" x-cloak>
+      <template x-for="t in timers" :key="t.id">
+        <div class="timer-pill">
+          <span class="timer-label" x-text="t.label"></span>
+          <strong x-text="clock(t.remaining)"></strong>
+          <button class="timer-stop" @click="stopTimer(t.id)" aria-label="Stop timer">✕</button>
+        </div>
+      </template>
+    </div>
   </main>
 
   <div class="toast" x-data x-cloak x-show="$store.ui.toast" x-transition>

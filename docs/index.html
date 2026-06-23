@@ -35,15 +35,19 @@
   </header>
 
   <main class="page-content" x-data="browsePage()" x-init="init()">
-    <div class="browse-search">
+    <div class="browse-toolbar">
       <input class="input" type="search" placeholder="Search recipes, ingredients…" x-model="search">
+      <select class="select browse-sort" x-model="sort">
+        <option value="oldest">Oldest first</option>
+        <option value="newest">Newest first</option>
+        <option value="az">A–Z</option>
+      </select>
     </div>
 
-    <div class="tag-filter-row" x-show="tags.length" x-cloak>
-      <button class="tag-chip" :class="{ active: activeTag === null }" @click="activeTag = null">All</button>
+    <div class="tag-filter-row" x-cloak>
+      <button class="tag-chip" :class="{ active: favoritesOnly }" @click="favoritesOnly = !favoritesOnly">⭐ Favorites</button>
       <template x-for="tag in tags" :key="tag">
-        <button class="tag-chip" :class="{ active: activeTag === tag }"
-          @click="activeTag = (activeTag === tag ? null : tag)" x-text="tag"></button>
+        <button class="tag-chip" :class="{ active: isTagActive(tag) }" @click="toggleTag(tag)" x-text="tag"></button>
       </template>
     </div>
 
@@ -61,7 +65,7 @@
         <a class="recipe-row" :href="`/recipe.html?id=${r.id}`">
           <span class="rnum" x-text="String(i + 1).padStart(2, '0')"></span>
           <div class="row-main">
-            <h3 class="row-title" x-text="r.title"></h3>
+            <h3 class="row-title"><span x-show="r.is_favorite" title="Favorite">⭐ </span><span x-text="r.title"></span></h3>
             <div class="row-tags" x-show="r.tags && r.tags.length">
               <template x-for="tag in r.tags" :key="tag"><span class="ct" x-text="tag"></span></template>
             </div>

@@ -19,7 +19,7 @@ function emptyForm() {
     prep_time_minutes: null, cook_time_minutes: null,
     servings: '', tagsText: '',
     ingredients: [''], instructions: [''],
-    source_url: '', image_url: null,
+    source_url: '', image_url: null, notes: '',
   };
 }
 
@@ -122,6 +122,7 @@ window.editPage = function editPage() {
         instructions: (data.instructions || []).length ? [...data.instructions] : [''],
         source_url: data.source_url || '',
         image_url: data.image_url || null,
+        notes: data.notes || '',
       };
     },
 
@@ -211,6 +212,7 @@ window.editPage = function editPage() {
         servings: this.form.servings.trim() || null,
         source_url: this.form.source_url.trim() || null,
         image_url: this.form.image_url || null,
+        notes: this.form.notes.trim() || null,
         tags: this.form.tagsText.split(',').map(t => t.trim()).filter(Boolean),
         ingredients: this.form.ingredients.map(s => s.trim()).filter(Boolean),
         instructions: this.form.instructions.map(s => s.trim()).filter(Boolean),
