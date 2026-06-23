@@ -34,9 +34,10 @@
     <article class="recipe-detail" x-show="!loading && recipe" x-cloak>
       <div style="display:flex; justify-content:space-between; gap:var(--space-4); align-items:flex-start;">
         <h1 x-text="recipe?.title"></h1>
-        <div class="header-actions" x-cloak x-show="$store.auth.isEditor" style="flex:0 0 auto;">
-          <a class="btn btn-ghost btn-sm" :href="`/edit.html?id=${recipe?.id}`">Edit</a>
-          <button class="btn btn-danger btn-sm" @click="del()">Delete</button>
+        <div class="header-actions" style="flex:0 0 auto;">
+          <button class="btn btn-ghost btn-sm" @click="share()">↗ Share</button>
+          <a class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isEditor" :href="`/edit.html?id=${recipe?.id}`">Edit</a>
+          <button class="btn btn-danger btn-sm" x-cloak x-show="$store.auth.isEditor" @click="del()">Delete</button>
         </div>
       </div>
 

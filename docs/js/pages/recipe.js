@@ -41,6 +41,24 @@ window.recipePage = function recipePage() {
       this.loading = false;
     },
 
+    async share() {
+      const url = window.location.href;
+      const title = this.recipe?.title || 'Recipe';
+      // Native share sheet on mobile (messages, social, etc.); copy link elsewhere.
+      if (navigator.share) {
+        try {
+          await navigator.share({ title, text: `${title} — Mom's Kitchen`, url });
+        } catch (_) { /* user dismissed the share sheet */ }
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        Alpine.store('ui').showToast('Link copied!');
+      } catch (_) {
+        Alpine.store('ui').showToast('Copy this link: ' + url);
+      }
+    },
+
     async del() {
       if (!confirm(`Delete "${this.recipe.title}"? This can't be undone.`)) return;
       const { error } = await supabase.from('recipes').delete().eq('id', this.recipe.id);
