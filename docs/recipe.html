@@ -139,8 +139,10 @@
           <strong>Ingredients</strong>
           <button class="btn btn-ghost btn-sm" @click="cookIngOpen = false">✕</button>
         </div>
-        <ul>
-          <template x-for="(ing, i) in converted" :key="i"><li x-text="ing"></li></template>
+        <ul class="checkable">
+          <template x-for="(ing, i) in converted" :key="i">
+            <li :class="{ checked: checkedIng[i] }" @click="toggleIng(i)" x-text="ing"></li>
+          </template>
         </ul>
       </div>
     </div>

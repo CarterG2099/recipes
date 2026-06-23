@@ -168,8 +168,9 @@ body { background: var(--color-bg); }
 .cook-sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
 .cook-sheet-head strong { font-family: var(--font-display); font-size: var(--text-lg); }
 .cook-sheet ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
-.cook-sheet li { padding: var(--space-2) 0; font-size: clamp(1.1rem, 3.6vw, 1.5rem); line-height: 1.4; border-bottom: 1px solid var(--color-border); }
+.cook-sheet li { padding: var(--space-2) 0; font-size: clamp(1.1rem, 3.6vw, 1.5rem); line-height: 1.4; border-bottom: 1px solid var(--color-border); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .cook-sheet li:last-child { border-bottom: none; }
+.cook-sheet li.checked { color: var(--color-text-muted); text-decoration: line-through; }
 .cook-sheet-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.25); z-index: 1; }
 
 /* ── Edit form ── */
