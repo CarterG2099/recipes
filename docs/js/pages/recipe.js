@@ -71,22 +71,32 @@ window.recipePage = function recipePage() {
     toggleStep(i) { this.checkedStep[i] = !this.checkedStep[i]; },
 
     // ── timers ──
+    // Track an absolute end time so the countdown stays accurate across phone
+    // sleep / app-switch (where setInterval pauses): we recompute from the clock
+    // and fire anything that elapsed while away the moment we're visible again.
     startTimer(seconds, label) {
-      this.timers.push({ id: this._tid++, label, remaining: seconds });
-      if (!this._timerInt) {
-        this._timerInt = setInterval(() => {
-          for (const t of this.timers) t.remaining--;
-          const done = this.timers.filter((t) => t.remaining <= 0);
-          for (const t of done) this._fire(t);
-          this.timers = this.timers.filter((t) => t.remaining > 0);
-          if (!this.timers.length) { clearInterval(this._timerInt); this._timerInt = null; }
-        }, 1000);
+      this.timers.push({ id: this._tid++, label, remaining: seconds, endsAt: Date.now() + seconds * 1000 });
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
       }
+      if (!this._timerInt) this._timerInt = setInterval(() => this._tickTimers(), 1000);
+    },
+    _tickTimers() {
+      const now = Date.now();
+      for (const t of this.timers) t.remaining = Math.max(0, Math.round((t.endsAt - now) / 1000));
+      this.timers.filter((t) => t.remaining <= 0).forEach((t) => this._fire(t));
+      this.timers = this.timers.filter((t) => t.remaining > 0);
+      if (!this.timers.length && this._timerInt) { clearInterval(this._timerInt); this._timerInt = null; }
     },
     _fire(t) {
       beep();
       if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
       Alpine.store('ui').showToast(`⏰ Timer done: ${t.label}`, 10000);
+      try {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification("Mom's Kitchen — timer done", { body: t.label, tag: 'mk-timer' });
+        }
+      } catch (_) { /* notifications unavailable */ }
     },
     stopTimer(id) {
       this.timers = this.timers.filter((t) => t.id !== id);
@@ -113,7 +123,11 @@ window.recipePage = function recipePage() {
     },
 
     async init() {
-      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') this._syncWake(); });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        this._syncWake();
+        if (this.timers.length) this._tickTimers(); // catch up timers that ran while away
+      });
       if (!this.id) { this.error = 'No recipe specified.'; this.loading = false; return; }
       const { data, error } = await supabase.from('recipes').select('*').eq('id', this.id).maybeSingle();
       if (error) this.error = "Couldn't load this recipe.";
