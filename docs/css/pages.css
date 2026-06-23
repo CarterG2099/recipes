@@ -144,18 +144,6 @@ body { background: var(--color-bg); }
 
 .empty-state .icon { font-size: 2.5rem; }
 
-/* ── Dev/preview page ── */
-.dev-banner {
-  background: var(--color-accent-soft); border: 1px solid #f0d9a8; color: #7a5510;
-  border-radius: var(--radius-md); padding: var(--space-3) var(--space-4);
-  font-size: var(--text-sm); line-height: 1.5; margin-bottom: var(--space-6);
-}
-.dev-controls {
-  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-6);
-  margin-bottom: var(--space-6);
-}
-.unit-toggle { display: inline-flex; gap: var(--space-1); }
-
 /* ── Mobile (primary target) ── */
 @media (max-width: 560px) {
   .app-header { padding: var(--space-3) var(--space-4); flex-wrap: wrap; gap: var(--space-2); }
