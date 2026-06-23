@@ -80,7 +80,7 @@ as $$
   );
 $$;
 revoke all on function public.is_editor() from public;
-grant execute on function public.is_editor() to anon, authenticated;
+grant execute on function public.is_editor() to authenticated;
 
 create or replace function public.is_admin()
 returns boolean
@@ -94,7 +94,7 @@ as $$
   );
 $$;
 revoke all on function public.is_admin() from public;
-grant execute on function public.is_admin() to anon, authenticated;
+grant execute on function public.is_admin() to authenticated;
 
 -- Any editor can (un)favorite any recipe — favorites are a shared family list, so
 -- this bypasses the owner-only update policy via SECURITY DEFINER.
@@ -149,9 +149,8 @@ insert into storage.buckets (id, name, public)
 values ('recipe-images', 'recipe-images', true)
 on conflict (id) do nothing;
 
-drop policy if exists "recipe images public read" on storage.objects;
-create policy "recipe images public read" on storage.objects
-  for select to anon, authenticated using (bucket_id = 'recipe-images');
+-- No SELECT policy: a public bucket serves object URLs directly, and omitting
+-- the policy prevents clients from listing every file in the bucket.
 
 drop policy if exists "recipe images editor insert" on storage.objects;
 create policy "recipe images editor insert" on storage.objects

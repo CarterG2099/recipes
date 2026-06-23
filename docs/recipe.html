@@ -125,6 +125,12 @@
         <span x-text="`Step ${cookStep + 1} of ${convertedSteps.length}`"></span>
         <button class="btn btn-ghost btn-sm" @click="exitCook()">✕ Done</button>
       </div>
+      <details class="cook-ingredients" open>
+        <summary>Ingredients</summary>
+        <ul>
+          <template x-for="(ing, i) in converted" :key="i"><li x-text="ing"></li></template>
+        </ul>
+      </details>
       <div class="cook-step">
         <template x-for="(seg, j) in (stepSegments[cookStep] || [])" :key="j">
           <template x-if="seg.text"><span x-text="seg.text"></span></template>

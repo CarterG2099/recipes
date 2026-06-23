@@ -4,6 +4,7 @@
  */
 
 import { supabase } from '../supabase.js';
+import { filterRecipes } from '../cooking.js';
 
 window.browsePage = function browsePage() {
   return {
@@ -40,17 +41,10 @@ window.browsePage = function browsePage() {
     isTagActive(t) { return this.activeTags.includes(t); },
 
     get filtered() {
-      const q = this.search.trim().toLowerCase();
-      let list = this.all.filter((r) => {
-        if (this.favoritesOnly && !r.is_favorite) return false;
-        if (this.activeTags.length && !this.activeTags.every((t) => (r.tags || []).includes(t))) return false;
-        if (!q) return true;
-        const hay = [r.title || '', r.description || '', ...(r.ingredients || []), ...(r.tags || [])].join(' ').toLowerCase();
-        return hay.includes(q);
+      return filterRecipes(this.all, {
+        search: this.search, activeTags: this.activeTags,
+        favoritesOnly: this.favoritesOnly, sort: this.sort,
       });
-      if (this.sort === 'az') list = [...list].sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-      else if (this.sort === 'newest') list = [...list].reverse(); // base order is oldest-first
-      return list;
     },
 
     totalTime(r) {
