@@ -114,6 +114,8 @@ window.recipePage = function recipePage() {
     error: null,
     scale: 1,
     system: 'us',
+    keepAwake: false,   // user's desired state
+    _wakeLock: null,    // active sentinel (released when the tab is hidden)
 
     get id() {
       return new URLSearchParams(window.location.search).get('id');
@@ -148,7 +150,26 @@ window.recipePage = function recipePage() {
     incScale() { this.scale = Math.round((this.scale + 0.5) * 2) / 2; },
     decScale() { if (this.scale > 0.5) this.scale = Math.round((this.scale - 0.5) * 2) / 2; },
 
+    // Keep the screen awake while cooking (Screen Wake Lock API). The lock is
+    // dropped by the OS when the tab is hidden, so we re-acquire on return.
+    get wakeSupported() { return 'wakeLock' in navigator; },
+    toggleWake() { this.keepAwake = !this.keepAwake; this._syncWake(); },
+    async _syncWake() {
+      try {
+        if (this.keepAwake && !this._wakeLock && document.visibilityState === 'visible') {
+          this._wakeLock = await navigator.wakeLock.request('screen');
+          this._wakeLock.addEventListener('release', () => { this._wakeLock = null; });
+        } else if (!this.keepAwake && this._wakeLock) {
+          await this._wakeLock.release();
+          this._wakeLock = null;
+        }
+      } catch (_) { this.keepAwake = false; }
+    },
+
     async init() {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') this._syncWake();
+      });
       if (!this.id) {
         this.error = 'No recipe specified.';
         this.loading = false;

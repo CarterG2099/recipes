@@ -65,6 +65,10 @@
         <template x-for="tag in (recipe?.tags || [])" :key="tag"><span class="badge" x-text="tag"></span></template>
       </div>
 
+      <button class="btn btn-sm" x-show="wakeSupported" :class="keepAwake ? 'btn-primary' : 'btn-ghost'"
+        @click="toggleWake()" style="margin-bottom:var(--space-6);"
+        x-text="keepAwake ? '🔆 Screen staying on' : '🔅 Keep screen on'"></button>
+
       <div class="recipe-columns">
         <section>
           <h2 class="recipe-section-title">Ingredients</h2>
