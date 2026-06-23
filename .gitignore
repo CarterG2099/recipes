@@ -13,3 +13,7 @@ venv/
 # Supabase CLI local artifacts
 supabase/.branches/
 supabase/.temp/
+
+# Local test files
+*.pdf
+*.PDF

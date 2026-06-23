@@ -1,41 +1,36 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="system">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob: https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob: https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Recipes</title>
+  <title>Mom's Kitchen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/tokens.css">
   <link rel="stylesheet" href="/css/base.css">
   <link rel="stylesheet" href="/css/components.css">
   <link rel="stylesheet" href="/css/pages.css">
-  <script>
-    const t = localStorage.getItem('theme') || 'system';
-    document.documentElement.setAttribute('data-theme',
-      t === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t);
-  </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.js" integrity="sha384-CQbEv3UOeYwlaBLdPF5KqEagCP39Q1KpvJC6Gwa3UGjZAwMvpA+0TFxSSnrgb4MX" crossorigin="anonymous"></script>
 </head>
 <body data-page="browse">
 
   <header class="app-header" x-data>
-    <a href="/" class="app-logo">🍳 Recipes</a>
+    <a href="/" class="app-logo"><span class="logo-mark">🥗</span> Mom's Kitchen</a>
     <div class="header-actions">
-      <a href="/edit.html" class="btn btn-primary btn-sm" x-cloak x-show="$store.auth.isEditor">+ Add Recipe</a>
-      <button class="btn btn-ghost btn-icon" @click="$store.ui.toggleTheme()" title="Toggle dark mode">
-        <span x-text="$store.ui.getEffectiveTheme() === 'dark' ? '☀️' : '🌙'"></span>
-      </button>
-      <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isEditor" @click="$store.auth.logout()">Sign Out</button>
-      <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.ready && !$store.auth.isLoggedIn" @click="$store.auth.signIn()">Sign In</button>
+      <a href="/edit.html" class="btn btn-primary btn-sm" x-cloak x-show="$store.auth.isEditor">+ Add recipe</a>
+      <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isEditor" @click="$store.auth.logout()">Sign out</button>
+      <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.ready && !$store.auth.isLoggedIn" @click="$store.auth.signIn()">Sign in</button>
     </div>
   </header>
 
   <main class="page-content" x-data="browsePage()" x-init="init()">
-    <div class="browse-toolbar">
-      <input class="input" type="search" placeholder="Search recipes, ingredients, tags…" x-model="search">
+    <div class="browse-search">
+      <input class="input" type="search" placeholder="Search recipes, ingredients…" x-model="search">
     </div>
 
-    <div class="tag-filter-row" x-show="tags.length">
+    <div class="tag-filter-row" x-show="tags.length" x-cloak>
       <button class="tag-chip" :class="{ active: activeTag === null }" @click="activeTag = null">All</button>
       <template x-for="tag in tags" :key="tag">
         <button class="tag-chip" :class="{ active: activeTag === tag }"
@@ -43,30 +38,26 @@
       </template>
     </div>
 
-    <div x-show="loading" style="display:flex; justify-content:center; padding:4rem;">
-      <div class="spinner"></div>
-    </div>
+    <div x-show="loading" style="display:flex; justify-content:center; padding:4rem;"><div class="spinner"></div></div>
 
     <div x-show="!loading && error" class="empty-state" x-text="error"></div>
 
     <div x-show="!loading && !error && filtered.length === 0" class="empty-state">
-      No recipes found.
+      <div class="icon">🍽️</div>
+      <p>No recipes yet.</p>
     </div>
 
-    <div class="recipe-grid" x-show="!loading && !error && filtered.length">
-      <template x-for="r in filtered" :key="r.id">
-        <a class="card recipe-card" :href="`/recipe.html?id=${r.id}`">
-          <h3 x-text="r.title"></h3>
-          <p class="recipe-desc" x-show="r.description" x-text="r.description"></p>
-          <div class="recipe-meta">
-            <span x-show="totalTime(r)" x-text="totalTime(r)"></span>
-            <span x-show="r.servings" x-text="`Serves ${r.servings}`"></span>
+    <div class="recipe-list" x-show="!loading && !error && filtered.length" x-cloak>
+      <template x-for="(r, i) in filtered" :key="r.id">
+        <a class="recipe-row" :href="`/recipe.html?id=${r.id}`">
+          <span class="rnum" x-text="String(i + 1).padStart(2, '0')"></span>
+          <div class="row-main">
+            <h3 class="row-title" x-text="r.title"></h3>
+            <div class="row-tags" x-show="r.tags && r.tags.length">
+              <template x-for="tag in r.tags" :key="tag"><span class="ct" x-text="tag"></span></template>
+            </div>
           </div>
-          <div class="recipe-card-tags">
-            <template x-for="tag in r.tags" :key="tag">
-              <span class="badge" x-text="tag"></span>
-            </template>
-          </div>
+          <span class="row-meta" x-text="metaLine(r)"></span>
         </a>
       </template>
     </div>

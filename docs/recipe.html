@@ -1,40 +1,32 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="system">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob: https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob: https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Recipe</title>
+  <title>Recipe — Mom's Kitchen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/tokens.css">
   <link rel="stylesheet" href="/css/base.css">
   <link rel="stylesheet" href="/css/components.css">
   <link rel="stylesheet" href="/css/pages.css">
-  <script>
-    const t = localStorage.getItem('theme') || 'system';
-    document.documentElement.setAttribute('data-theme',
-      t === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t);
-  </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.js" integrity="sha384-CQbEv3UOeYwlaBLdPF5KqEagCP39Q1KpvJC6Gwa3UGjZAwMvpA+0TFxSSnrgb4MX" crossorigin="anonymous"></script>
 </head>
 <body data-page="recipe">
 
   <header class="app-header" x-data>
-    <a href="/" class="app-logo">🍳 Recipes</a>
+    <a href="/" class="app-logo"><span class="logo-mark">🥗</span> Mom's Kitchen</a>
     <div class="header-actions">
-      <a href="/edit.html" class="btn btn-primary btn-sm" x-cloak x-show="$store.auth.isEditor">+ Add Recipe</a>
-      <button class="btn btn-ghost btn-icon" @click="$store.ui.toggleTheme()" title="Toggle dark mode">
-        <span x-text="$store.ui.getEffectiveTheme() === 'dark' ? '☀️' : '🌙'"></span>
-      </button>
-      <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isEditor" @click="$store.auth.logout()">Sign Out</button>
-      <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.ready && !$store.auth.isLoggedIn" @click="$store.auth.signIn()">Sign In</button>
+      <a href="/edit.html" class="btn btn-primary btn-sm" x-cloak x-show="$store.auth.isEditor">+ Add recipe</a>
+      <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isEditor" @click="$store.auth.logout()">Sign out</button>
+      <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.ready && !$store.auth.isLoggedIn" @click="$store.auth.signIn()">Sign in</button>
     </div>
   </header>
 
   <main class="page-content" x-data="recipePage()" x-init="init()">
-    <div x-show="loading" style="display:flex; justify-content:center; padding:4rem;">
-      <div class="spinner"></div>
-    </div>
-
+    <div x-show="loading" style="display:flex; justify-content:center; padding:4rem;"><div class="spinner"></div></div>
     <div x-show="!loading && error" class="empty-state" x-text="error"></div>
 
     <article class="recipe-detail" x-show="!loading && recipe" x-cloak>
@@ -46,8 +38,6 @@
         </div>
       </div>
 
-      <p class="text-muted" x-show="recipe?.description" x-text="recipe?.description" style="line-height:1.55;"></p>
-
       <div class="recipe-meta">
         <span x-show="recipe?.prep_time_minutes" x-text="`Prep ${recipe?.prep_time_minutes} min`"></span>
         <span x-show="recipe?.cook_time_minutes" x-text="`Cook ${recipe?.cook_time_minutes} min`"></span>
@@ -55,27 +45,25 @@
         <span x-show="recipe?.servings" x-text="`Serves ${recipe?.servings}`"></span>
       </div>
 
-      <div class="recipe-card-tags" style="margin-bottom:var(--space-6);">
-        <template x-for="tag in (recipe?.tags || [])" :key="tag">
-          <span class="badge" x-text="tag"></span>
-        </template>
+      <p class="text-muted" x-show="recipe?.description" x-text="recipe?.description" style="line-height:1.55; margin-top:0;"></p>
+
+      <img class="recipe-photo" x-show="recipe?.image_url" :src="recipe?.image_url" alt="Recipe card photo">
+
+      <div class="cardtags" style="margin-bottom:var(--space-6);">
+        <template x-for="tag in (recipe?.tags || [])" :key="tag"><span class="badge" x-text="tag"></span></template>
       </div>
 
       <div class="recipe-columns">
         <section>
           <h2 class="recipe-section-title">Ingredients</h2>
           <ul class="ingredient-list">
-            <template x-for="(ing, i) in (recipe?.ingredients || [])" :key="i">
-              <li x-text="ing"></li>
-            </template>
+            <template x-for="(ing, i) in (recipe?.ingredients || [])" :key="i"><li x-text="ing"></li></template>
           </ul>
         </section>
         <section>
           <h2 class="recipe-section-title">Instructions</h2>
           <ol class="instruction-list">
-            <template x-for="(step, i) in (recipe?.instructions || [])" :key="i">
-              <li x-text="step"></li>
-            </template>
+            <template x-for="(step, i) in (recipe?.instructions || [])" :key="i"><li x-text="step"></li></template>
           </ol>
         </section>
       </div>

@@ -50,5 +50,13 @@ window.browsePage = function browsePage() {
       const total = (r.prep_time_minutes || 0) + (r.cook_time_minutes || 0);
       return total ? `${total} min` : '';
     },
+
+    metaLine(r) {
+      const parts = [];
+      const t = this.totalTime(r);
+      if (t) parts.push(t);
+      if (r.servings) parts.push(`serves ${r.servings}`);
+      return parts.join(' · ');
+    },
   };
 };

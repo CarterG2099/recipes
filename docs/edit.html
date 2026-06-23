@@ -1,50 +1,53 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="system">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob: https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob: https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Edit Recipe</title>
+  <title>Edit recipe — Mom's Kitchen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/tokens.css">
   <link rel="stylesheet" href="/css/base.css">
   <link rel="stylesheet" href="/css/components.css">
   <link rel="stylesheet" href="/css/pages.css">
-  <script>
-    const t = localStorage.getItem('theme') || 'system';
-    document.documentElement.setAttribute('data-theme',
-      t === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t);
-  </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.js" integrity="sha384-CQbEv3UOeYwlaBLdPF5KqEagCP39Q1KpvJC6Gwa3UGjZAwMvpA+0TFxSSnrgb4MX" crossorigin="anonymous"></script>
 </head>
 <body data-page="edit">
 
   <header class="app-header" x-data>
-    <a href="/" class="app-logo">🍳 Recipes</a>
+    <a href="/" class="app-logo"><span class="logo-mark">🥗</span> Mom's Kitchen</a>
     <div class="header-actions">
-      <button class="btn btn-ghost btn-icon" @click="$store.ui.toggleTheme()" title="Toggle dark mode">
-        <span x-text="$store.ui.getEffectiveTheme() === 'dark' ? '☀️' : '🌙'"></span>
-      </button>
-      <button class="btn btn-ghost btn-sm" @click="$store.auth.logout()">Sign Out</button>
+      <button class="btn btn-ghost btn-sm" @click="$store.auth.logout()">Sign out</button>
     </div>
   </header>
 
   <main class="page-content" x-data="editPage()" x-init="init()">
     <div class="edit-form">
-      <h1 x-text="id ? 'Edit Recipe' : 'New Recipe'" style="margin-bottom:var(--space-6);"></h1>
+      <h1 x-text="id ? 'Edit recipe' : 'New recipe'" style="margin-bottom:var(--space-6);"></h1>
 
-      <!-- Import (create mode only) -->
-      <div class="card form-section" x-show="!id" style="padding:var(--space-4);">
-        <h2 class="recipe-section-title">Import (optional)</h2>
-        <div class="import-row" style="margin-bottom:var(--space-3);">
-          <input class="input" type="url" placeholder="Paste a recipe URL…" x-model="importUrlValue">
-          <button class="btn btn-ghost btn-sm" @click="importUrl()" :disabled="importing">
-            <span x-text="importing ? 'Importing…' : 'Import from URL'"></span>
-          </button>
+      <!-- Import options (new recipes) -->
+      <div class="form-section" x-show="!id">
+        <h2 class="recipe-section-title">Start from…</h2>
+        <div class="import-options">
+          <div class="import-tile">
+            <span class="tile-title">🔗 A link</span>
+            <input class="input" type="url" placeholder="Paste a recipe URL" x-model="importUrlValue">
+            <button class="btn btn-ghost btn-sm" @click="importUrl()" :disabled="importing">Import</button>
+          </div>
+          <div class="import-tile">
+            <span class="tile-title">📄 A PDF</span>
+            <span class="tile-hint">Text-based PDFs.</span>
+            <input type="file" accept="application/pdf" x-ref="pdf" @change="importPdf($event)" :disabled="importing">
+          </div>
+          <div class="import-tile">
+            <span class="tile-title">📷 A photo</span>
+            <span class="tile-hint">A handwritten card or printout — it reads it and keeps the photo.</span>
+            <input type="file" accept="image/*" x-ref="photo" @change="importPhoto($event)" :disabled="importing">
+          </div>
         </div>
-        <div class="import-row">
-          <input type="file" accept="application/pdf" x-ref="pdf" @change="importPdf($event)">
-          <span class="text-muted" style="font-size:var(--text-sm);">Text-based PDFs only</span>
-        </div>
+        <div class="busy-note" x-show="importing"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Reading…</div>
         <div class="import-warning" x-show="importWarning" x-text="importWarning"></div>
       </div>
 
@@ -54,29 +57,32 @@
       <div class="form-section">
         <div class="form-group">
           <label class="form-label">Title</label>
-          <input class="input" type="text" x-model="form.title" placeholder="e.g. Weeknight Carbonara">
+          <input class="input" type="text" x-model="form.title" placeholder="e.g. Grandma's Banana Bread">
         </div>
         <div class="form-group">
           <label class="form-label">Description</label>
           <textarea class="input" rows="2" x-model="form.description"></textarea>
         </div>
         <div class="field-grid">
-          <div class="form-group">
-            <label class="form-label">Prep (min)</label>
-            <input class="input" type="number" min="0" x-model.number="form.prep_time_minutes">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Cook (min)</label>
-            <input class="input" type="number" min="0" x-model.number="form.cook_time_minutes">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Servings</label>
-            <input class="input" type="text" x-model="form.servings" placeholder="e.g. 4">
-          </div>
+          <div class="form-group"><label class="form-label">Prep (min)</label><input class="input" type="number" min="0" x-model.number="form.prep_time_minutes"></div>
+          <div class="form-group"><label class="form-label">Cook (min)</label><input class="input" type="number" min="0" x-model.number="form.cook_time_minutes"></div>
+          <div class="form-group"><label class="form-label">Servings</label><input class="input" type="text" x-model="form.servings" placeholder="e.g. 4"></div>
         </div>
         <div class="form-group">
           <label class="form-label">Tags (comma-separated)</label>
-          <input class="input" type="text" x-model="form.tagsText" placeholder="dinner, pasta, quick">
+          <input class="input" type="text" x-model="form.tagsText" placeholder="dinner, baking, family">
+        </div>
+      </div>
+
+      <!-- Photo of the card -->
+      <div class="form-section">
+        <h2 class="recipe-section-title">Recipe photo</h2>
+        <div class="image-preview">
+          <img x-show="form.image_url" :src="form.image_url" alt="Recipe photo">
+          <div>
+            <input type="file" accept="image/*" x-ref="attach" @change="attachPhoto($event)" :disabled="importing">
+            <div><button class="btn btn-ghost btn-sm" x-show="form.image_url" @click="form.image_url = null" style="margin-top:8px;">Remove photo</button></div>
+          </div>
         </div>
       </div>
 
@@ -114,8 +120,8 @@
 
       <div class="header-actions" style="justify-content:flex-end;">
         <a class="btn btn-ghost" href="/">Cancel</a>
-        <button class="btn btn-primary" @click="save()" :disabled="saving">
-          <span x-text="saving ? 'Saving…' : 'Save Recipe'"></span>
+        <button class="btn btn-primary" @click="save()" :disabled="saving || importing">
+          <span x-text="saving ? 'Saving…' : 'Save recipe'"></span>
         </button>
       </div>
     </div>

@@ -1,80 +1,68 @@
-/* tokens.css — single source of truth for all visual values */
+/* tokens.css — Fresh & bright kitchen theme (single source of truth) */
 :root {
   /* Backgrounds */
-  --color-bg:             #ffffff;
-  --color-surface:        #f8f9fa;
+  --color-bg:             #FFFDF8;   /* soft warm white */
+  --color-surface:        #f5f7f0;   /* faint sage-tinted panel */
   --color-surface-raised: #ffffff;
-  --color-border:         #e9ecef;
-  --color-control:        #f1f3f5;   /* form controls / dropdown triggers — distinct from bg */
-  --color-menu:           #ffffff;   /* dropdown menu panel */
-  --color-menu-item:      #f8f9fa;   /* dropdown item at rest */
-  --color-hover:          #e9ecef;   /* hovered dropdown item — one step darker */
+  --color-border:         #e9e7dd;
+  --color-control:        #f3f5ee;
+  --color-menu:           #ffffff;
+  --color-menu-item:      #f6f8f2;
+  --color-hover:          #eef2e9;
 
   /* Text */
-  --color-text:           #212529;
-  --color-text-muted:     #6c757d;
+  --color-text:           #2E2A26;
+  --color-text-muted:     #6f6a62;
 
   /* Brand / interactive */
-  --color-primary:        #4361ee;
-  --color-primary-hover:  #3451d1;
-  --color-danger:         #e63946;
-  --color-success:        #2a9d8f;
-  --color-warning:        #f4a261;
+  --color-primary:        #5E9C76;   /* sage green */
+  --color-primary-hover:  #4d8463;
+  --color-accent:         #E8A33D;   /* honey */
+  --color-accent-soft:    #fbf0db;
+  --color-danger:         #c2553f;   /* warm terracotta-red */
+  --color-success:        #5E9C76;
+  --color-warning:        #E8A33D;
 
-  /* Budget progress bar states */
-  --color-budget-ok:      #2a9d8f;   /* 0–75% */
-  --color-budget-warn:    #f4a261;   /* 76–90% */
-  --color-budget-over:    #e63946;   /* 91–100% */
-  /* >100% → #c1121f dark red, no token needed */
-
-  /* Amount semantic colors */
-  --color-income:         #2a9d8f;
-  --color-spending:       #e63946;
-  --color-investment:     #7209b7;
-  --color-transfer:       #4361ee;
+  /* Legacy budget tokens kept so shared components don't break (unused visually) */
+  --color-budget-ok:      #5E9C76;
+  --color-budget-warn:    #E8A33D;
+  --color-budget-over:    #c2553f;
+  --color-income:         #5E9C76;
+  --color-spending:       #c2553f;
+  --color-investment:     #7a8b6f;
+  --color-transfer:       #5E9C76;
 
   /* Spacing (4px base) */
   --space-1: 4px;  --space-2: 8px;  --space-3: 12px;
   --space-4: 16px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
 
-  /* Typography */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  /* Typography — Quicksand for display/titles, a readable sans for body */
+  --font-display: 'Quicksand', system-ui, -apple-system, sans-serif;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', monospace;
+  --text-xs:   0.72rem;
   --text-sm:   0.875rem;
   --text-base: 1rem;
   --text-lg:   1.125rem;
-  --text-xl:   1.25rem;
-  --text-2xl:  1.5rem;
-  --text-3xl:  1.875rem;
+  --text-xl:   1.3rem;
+  --text-2xl:  1.6rem;
+  --text-3xl:  2.1rem;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
-  --shadow-md: 0 4px 6px rgba(0,0,0,.07);
-  --shadow-lg: 0 10px 15px rgba(0,0,0,.10);
+  /* Shadows — soft, sage-tinted */
+  --shadow-sm: 0 1px 2px rgba(94,156,118,.08);
+  --shadow-md: 0 8px 20px rgba(94,156,118,.12);
+  --shadow-lg: 0 16px 32px rgba(60,80,60,.16);
 
-  /* Border radii */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 20px;
+  /* Border radii — rounded & friendly */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
 
   /* Transitions */
   --transition-fast: 150ms ease;
   --transition-base: 250ms ease;
 }
 
-[data-theme="dark"] {
-  --color-bg:             #0f1117;
-  --color-surface:        #1a1d27;
-  --color-surface-raised: #22263a;
-  --color-border:         #2d3148;
-  --color-control:        #22263a;   /* distinct from #0f1117 page bg */
-  --color-menu:           #1a1d27;
-  --color-menu-item:      #22263a;
-  --color-hover:          #2d3148;
-  --color-text:           #e9ecef;
-  --color-text-muted:     #868e96;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,.20);
-  --shadow-md: 0 4px 6px rgba(0,0,0,.30);
-  --shadow-lg: 0 10px 15px rgba(0,0,0,.40);
-}
+/* Single light theme — no dark mode for this site. */

@@ -18,6 +18,7 @@ create table if not exists public.recipes (
     servings          text,
     tags              text[] not null default '{}',
     source_url        text,
+    image_url         text,                                 -- photo of the recipe/card (Supabase Storage)
     created_by        text,
     created_at        timestamptz not null default now(),
     updated_at        timestamptz not null default now()
@@ -88,3 +89,26 @@ create policy recipes_editor_update on public.recipes
 drop policy if exists recipes_editor_delete on public.recipes;
 create policy recipes_editor_delete on public.recipes
     for delete to authenticated using (public.is_editor());
+
+-- ── Image storage ──────────────────────────────────────────────────────────
+-- Public bucket for recipe/card photos. Anyone can view; only allowlisted
+-- editors can upload/replace/remove (same is_editor() gate as recipes).
+insert into storage.buckets (id, name, public)
+values ('recipe-images', 'recipe-images', true)
+on conflict (id) do nothing;
+
+drop policy if exists "recipe images public read" on storage.objects;
+create policy "recipe images public read" on storage.objects
+  for select to anon, authenticated using (bucket_id = 'recipe-images');
+
+drop policy if exists "recipe images editor insert" on storage.objects;
+create policy "recipe images editor insert" on storage.objects
+  for insert to authenticated with check (bucket_id = 'recipe-images' and public.is_editor());
+
+drop policy if exists "recipe images editor update" on storage.objects;
+create policy "recipe images editor update" on storage.objects
+  for update to authenticated using (bucket_id = 'recipe-images' and public.is_editor());
+
+drop policy if exists "recipe images editor delete" on storage.objects;
+create policy "recipe images editor delete" on storage.objects
+  for delete to authenticated using (bucket_id = 'recipe-images' and public.is_editor());

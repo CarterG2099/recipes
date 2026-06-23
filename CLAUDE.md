@@ -44,19 +44,39 @@ supabase/
 
 ## Imports
 
+All three return an unsaved draft that pre-fills the edit form for human review;
+nothing is auto-saved.
+
 - URL: `import-url` Edge Function — fetch + schema.org/Recipe JSON-LD parsing
-  (handles `@graph`, HowToStep, HowToSection, ISO-8601 durations). Returns a
-  draft; never writes.
+  (handles `@graph`, HowToStep, HowToSection, ISO-8601 durations).
 - PDF: in-browser via pdf.js (loaded from jsdelivr). Heuristic Ingredients/
   Instructions header split; text PDFs only — image/scanned PDFs yield a warning.
+- Photo (incl. handwritten cards): `import-photo` Edge Function calls the Google
+  **Gemini** API (free tier, `gemini-2.0-flash`) with a JSON response schema. The
+  `GEMINI_API_KEY` is a function secret (Supabase dashboard), never in the browser.
+  `importPhoto()` also uploads the photo to Storage and sets it as `image_url`, so
+  one action both reads the card and keeps it.
+
+## Images
+
+- `recipes.image_url` is a public URL in the `recipe-images` Storage bucket
+  (public read; editor-only writes via `is_editor()`). Uploaded with supabase-js.
+- Shown on the recipe detail page; the browse list stays text-only.
+
+## Design
+
+Fresh & bright palette in `tokens.css` (sage `#5E9C76`, honey `#E8A33D`, soft white).
+Display font is **Quicksand** via Google Fonts. Browse page is a numbered cookbook
+index (list rows), not a grid. No dark mode. Logo/name: "Mom's Kitchen".
 
 ## Gotchas
 
 - **Repo must stay public** for free GitHub Pages. Never commit secrets — `.env`,
   `client_secret*.json` are gitignored. The Supabase anon key is safe to expose.
 - **CSP** is a `<meta http-equiv>` tag in each HTML file (GitHub Pages can't set
-  headers). It must allow `cdn.jsdelivr.net` (supabase-js + pdf.js), `'unsafe-eval'`
-  (Alpine), `blob:` workers (pdf.js), and `*.supabase.co` connections.
+  headers). It must allow `cdn.jsdelivr.net` (supabase-js + pdf.js),
+  `fonts.googleapis.com`/`fonts.gstatic.com` (Quicksand), `'unsafe-eval'` (Alpine),
+  `blob:` workers (pdf.js), and `*.supabase.co` connections.
 - The supabase-js CDN `<script>` is SRI-pinned; bump the hash if you change the
   version.
 - Free Supabase projects pause after ~7 days idle — the `keepalive` function +
