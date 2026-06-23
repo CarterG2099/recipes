@@ -61,8 +61,6 @@
 
       <p class="text-muted" x-show="recipe?.description" x-text="recipe?.description" style="line-height:1.55; margin-top:0;"></p>
 
-      <img class="recipe-photo" x-show="recipe?.image_url" :src="recipe?.image_url" alt="Recipe card photo">
-
       <div class="cardtags" style="margin-bottom:var(--space-6);">
         <template x-for="tag in (recipe?.tags || [])" :key="tag"><span class="badge" x-text="tag"></span></template>
       </div>
@@ -114,6 +112,9 @@
       <p x-show="recipe?.source_url" style="margin-top:var(--space-8);">
         <a class="text-muted" :href="recipe?.source_url" target="_blank" rel="noopener noreferrer">Source ↗</a>
       </p>
+
+      <!-- Photo last so a late load never shifts the recipe content above it. -->
+      <img class="recipe-photo" x-show="recipe?.image_url" :src="recipe?.image_url" alt="Recipe photo" loading="lazy" style="margin-top:var(--space-8);">
     </article>
 
     <!-- Cook mode: one big step at a time -->
