@@ -81,7 +81,14 @@ body { background: var(--color-bg); }
 .recipe-row .row-tags { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: 2px; }
 .recipe-row .ct { font-size: var(--text-xs); padding: 3px 10px; border-radius: var(--radius-pill); background: var(--color-accent-soft); color: #9a6b18; }
 .recipe-row .row-meta { text-align: right; font-size: var(--text-sm); color: var(--color-text-muted); white-space: nowrap; flex: 0 0 auto; }
-@media (max-width: 520px) { .recipe-row .row-meta { display: none; } }
+/* On phones, drop the time/servings under the title instead of hiding it. */
+@media (max-width: 520px) {
+  .recipe-row { flex-wrap: wrap; }
+  .recipe-row .row-meta {
+    width: 100%; text-align: left; white-space: normal;
+    padding-left: calc(28px + var(--space-4)); margin-top: 2px;
+  }
+}
 
 /* ── Recipe detail ── */
 .recipe-detail { max-width: 760px; margin: 0 auto; }
@@ -124,3 +131,14 @@ body { background: var(--color-bg); }
 .busy-note { display: flex; align-items: center; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--text-sm); margin-top: var(--space-2); }
 
 .empty-state .icon { font-size: 2.5rem; }
+
+/* ── Mobile (primary target) ── */
+@media (max-width: 560px) {
+  .app-header { padding: var(--space-3) var(--space-4); flex-wrap: wrap; gap: var(--space-2); }
+  .app-logo { font-size: var(--text-xl); }
+  .header-actions { flex-wrap: wrap; gap: var(--space-2); }
+  .page-content { padding: var(--space-6) var(--space-4) var(--space-10); }
+  .recipe-detail h1 { font-size: var(--text-2xl); }
+  .toast { left: var(--space-3); right: var(--space-3); transform: none; min-width: 0; bottom: var(--space-4); }
+  .recipe-photo { max-height: 320px; }
+}

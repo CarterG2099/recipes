@@ -6,6 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Recipe — Mom's Kitchen</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#5E9C76">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mom's Kitchen">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -33,7 +40,7 @@
     <div x-show="!loading && error" class="empty-state" x-text="error"></div>
 
     <article class="recipe-detail" x-show="!loading && recipe" x-cloak>
-      <div style="display:flex; justify-content:space-between; gap:var(--space-4); align-items:flex-start;">
+      <div style="display:flex; justify-content:space-between; gap:var(--space-4); align-items:flex-start; flex-wrap:wrap;">
         <h1 x-text="recipe?.title"></h1>
         <div class="header-actions" style="flex:0 0 auto;">
           <button class="btn btn-ghost btn-sm" @click="share()">↗ Share</button>

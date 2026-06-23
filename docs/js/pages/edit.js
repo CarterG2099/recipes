@@ -2,7 +2,7 @@
  * edit.js — create/edit a recipe.
  *   • URL import   → import-url Edge Function (JSON-LD)
  *   • PDF import   → import-photo Edge Function (Gemini reads the PDF directly)
- *   • Photo import → uploads to Storage AND reads it via import-photo (Gemini)
+ *   • Photo import → downscales in-browser, uploads to Storage, AND reads via import-photo (Gemini)
  * Writes go through supabase-js and are enforced by the editor RLS policies.
  * The page redirects non-editors away (UX only; RLS is the real boundary).
  */
@@ -10,6 +10,8 @@
 import { supabase } from '../supabase.js';
 
 const BUCKET = 'recipe-images';
+const MAX_EDGE = 1600;   // px — plenty for reading a card; keeps uploads small on mobile
+const JPEG_QUALITY = 0.85;
 
 function emptyForm() {
   return {
@@ -21,19 +23,40 @@ function emptyForm() {
   };
 }
 
-function fileToBase64(file) {
+function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
     reader.onerror = () => reject(new Error('Could not read the file'));
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(blob);
   });
 }
 
-async function uploadImage(file) {
-  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+// Shrink a phone photo and bake in EXIF rotation. Returns { blob, base64, mimeType }.
+// Non-images (shouldn't happen here) pass through untouched.
+async function prepImage(file) {
+  if (!file.type.startsWith('image/')) {
+    return { blob: file, base64: await blobToBase64(file), mimeType: file.type };
+  }
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch (_) {
+    bitmap = await createImageBitmap(file);
+  }
+  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+  const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', JPEG_QUALITY));
+  return { blob, base64: await blobToBase64(blob), mimeType: 'image/jpeg' };
+}
+
+async function uploadBlob(blob, ext, contentType) {
   const path = `${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type });
+  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType });
   if (error) throw new Error(error.message);
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
@@ -126,7 +149,7 @@ window.editPage = function editPage() {
       if (!file) return;
       this.importing = true; this.importWarning = ''; this.error = null;
       try {
-        const base64 = await fileToBase64(file);
+        const base64 = await blobToBase64(file);
         this._applyDraft(await readWithGemini(base64, file.type || 'application/pdf'));
         Alpine.store('ui').showToast('Read from PDF — review and save.');
       } catch (e) {
@@ -136,15 +159,15 @@ window.editPage = function editPage() {
       if (this.$refs.pdf) this.$refs.pdf.value = '';
     },
 
-    // Snap/upload a recipe-card photo: store it AND read it with Gemini.
+    // Snap/upload a recipe-card photo: shrink it, store it, AND read it with Gemini.
     async importPhoto(event) {
       const file = event.target.files?.[0];
       if (!file) return;
       this.importing = true; this.importWarning = ''; this.error = null;
       try {
-        const [url, base64] = await Promise.all([uploadImage(file), fileToBase64(file)]);
-        this.form.image_url = url;
-        this._applyDraft(await readWithGemini(base64, file.type));
+        const { blob, base64, mimeType } = await prepImage(file);
+        this.form.image_url = await uploadBlob(blob, 'jpg', mimeType);
+        this._applyDraft(await readWithGemini(base64, mimeType));
         Alpine.store('ui').showToast('Read from photo — review and save.');
       } catch (e) {
         this.error = 'Photo import failed: ' + (e.message || '');
@@ -159,7 +182,8 @@ window.editPage = function editPage() {
       if (!file) return;
       this.importing = true; this.error = null;
       try {
-        this.form.image_url = await uploadImage(file);
+        const { blob, mimeType } = await prepImage(file);
+        this.form.image_url = await uploadBlob(blob, 'jpg', mimeType);
         Alpine.store('ui').showToast('Photo added.');
       } catch (e) {
         this.error = 'Upload failed: ' + (e.message || '');

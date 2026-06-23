@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#5E9C76"/>
+  <!-- steam -->
+  <g stroke="#E8A33D" stroke-width="16" stroke-linecap="round" fill="none" opacity="0.95">
+    <path d="M212 150 q-22 -28 0 -56"/>
+    <path d="M256 150 q-22 -28 0 -56"/>
+    <path d="M300 150 q-22 -28 0 -56"/>
+  </g>
+  <!-- bowl -->
+  <path d="M112 248 a144 144 0 0 0 288 0 Z" fill="#FFFDF8"/>
+  <ellipse cx="256" cy="248" rx="144" ry="34" fill="#FFFDF8"/>
+  <ellipse cx="256" cy="248" rx="132" ry="26" fill="#eaf0e6"/>
+</svg>
