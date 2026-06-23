@@ -1,20 +1,15 @@
 /**
  * edit.js — create/edit a recipe.
- *   • URL import  → import-url Edge Function
- *   • PDF import  → pdf.js in the browser
- *   • Photo import → uploads the image to Storage AND reads it via import-photo (Gemini)
+ *   • URL import   → import-url Edge Function (JSON-LD)
+ *   • PDF import   → import-photo Edge Function (Gemini reads the PDF directly)
+ *   • Photo import → uploads to Storage AND reads it via import-photo (Gemini)
  * Writes go through supabase-js and are enforced by the editor RLS policies.
  * The page redirects non-editors away (UX only; RLS is the real boundary).
  */
 
 import { supabase } from '../supabase.js';
 
-const PDFJS_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/build/pdf.min.mjs';
-const PDFJS_WORKER = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/build/pdf.worker.min.mjs';
 const BUCKET = 'recipe-images';
-
-const ING_HEADER = /^\s*ingredients\s*:?\s*$/i;
-const STEP_HEADER = /^\s*(instructions|directions|method|steps|preparation)\s*:?\s*$/i;
 
 function emptyForm() {
   return {
@@ -24,29 +19,6 @@ function emptyForm() {
     ingredients: [''], instructions: [''],
     source_url: '', image_url: null,
   };
-}
-
-function parsePdfText(text) {
-  const lines = text.split(/\r?\n/);
-  const title = (lines.find(l => l.trim()) || '').trim();
-  const ingredients = [];
-  const instructions = [];
-  let section = null;
-  for (const line of lines) {
-    if (ING_HEADER.test(line)) { section = 'ing'; continue; }
-    if (STEP_HEADER.test(line)) { section = 'step'; continue; }
-    const s = line.trim();
-    if (!s) continue;
-    if (section === 'ing') ingredients.push(s);
-    else if (section === 'step') instructions.push(s);
-  }
-  const draft = { title, ingredients, instructions, tags: [] };
-  if (!ingredients.length && !instructions.length) {
-    draft.warning = "Couldn't detect Ingredients/Instructions headers in this PDF. " +
-      'The full text was put in the description — please split it manually.';
-    draft.description = text.trim().slice(0, 4000);
-  }
-  return draft;
 }
 
 function fileToBase64(file) {
@@ -64,6 +36,16 @@ async function uploadImage(file) {
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type });
   if (error) throw new Error(error.message);
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+// Send a file (image or PDF) to the Gemini-backed reader and return its draft.
+async function readWithGemini(base64, mimeType) {
+  const { data, error } = await supabase.functions.invoke('import-photo', {
+    body: { imageBase64: base64, mimeType },
+  });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  return data;
 }
 
 window.editPage = function editPage() {
@@ -136,18 +118,9 @@ window.editPage = function editPage() {
       if (!file) return;
       this.importing = true; this.importWarning = ''; this.error = null;
       try {
-        const pdfjs = await import(/* @vite-ignore */ PDFJS_URL);
-        pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
-        const buf = await file.arrayBuffer();
-        const pdf = await pdfjs.getDocument({ data: buf }).promise;
-        let text = '';
-        for (let p = 1; p <= pdf.numPages; p++) {
-          const page = await pdf.getPage(p);
-          const content = await page.getTextContent();
-          text += content.items.map(i => i.str).join(' ') + '\n';
-        }
-        this._applyDraft(parsePdfText(text));
-        Alpine.store('ui').showToast('Extracted — review and save.');
+        const base64 = await fileToBase64(file);
+        this._applyDraft(await readWithGemini(base64, file.type || 'application/pdf'));
+        Alpine.store('ui').showToast('Read from PDF — review and save.');
       } catch (e) {
         this.error = 'PDF import failed: ' + (e.message || '');
       }
@@ -161,14 +134,9 @@ window.editPage = function editPage() {
       if (!file) return;
       this.importing = true; this.importWarning = ''; this.error = null;
       try {
-        const [url, imageBase64] = await Promise.all([uploadImage(file), fileToBase64(file)]);
+        const [url, base64] = await Promise.all([uploadImage(file), fileToBase64(file)]);
         this.form.image_url = url;
-        const { data, error } = await supabase.functions.invoke('import-photo', {
-          body: { imageBase64, mimeType: file.type },
-        });
-        if (error) throw new Error(error.message);
-        if (data?.error) throw new Error(data.error);
-        this._applyDraft(data);
+        this._applyDraft(await readWithGemini(base64, file.type));
         Alpine.store('ui').showToast('Read from photo — review and save.');
       } catch (e) {
         this.error = 'Photo import failed: ' + (e.message || '');

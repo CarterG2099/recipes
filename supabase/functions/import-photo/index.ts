@@ -22,11 +22,12 @@ function json(body: unknown, status = 200): Response {
 }
 
 const PROMPT =
-  "You are reading a photo of a recipe, often handwritten on a card. " +
-  "Transcribe it faithfully into structured fields. Keep ingredient and step " +
-  "wording close to the original; expand only obvious abbreviations (PB -> " +
-  "peanut butter, tsp, tbsp, etc.). Do not invent steps, times, or servings. " +
-  "If prep time, cook time, or servings are not written, leave them null.";
+  "You are reading a photo or PDF of a recipe — sometimes a handwritten card, " +
+  "sometimes a printout or web export. Transcribe it faithfully into structured " +
+  "fields. Keep ingredient and step wording close to the original; expand only " +
+  "obvious abbreviations (PB -> peanut butter, tsp, tbsp, etc.). Do not invent " +
+  "steps, times, or servings. If prep time, cook time, or servings are not " +
+  "written, leave them null.";
 
 const SCHEMA = {
   type: "object",
