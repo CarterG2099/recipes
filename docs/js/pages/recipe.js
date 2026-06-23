@@ -2,9 +2,8 @@
  * recipe.js — single recipe detail. Reads ?id= from the query string.
  * Serving scaler (½ steps) + US/Metric conversion, done client-side by parsing
  * the leading amount/unit of each free-text ingredient line. Best-effort: lines
- * it can't parse pass through unchanged.
- *
- * NOTE: this is the metric-conversion branch — main has scaling only.
+ * it can't parse pass through unchanged. (The metric-conversion branch replaces
+ * this heuristic parse with structured {amount, unit, item} ingredients.)
  */
 
 import { supabase } from '../supabase.js';
