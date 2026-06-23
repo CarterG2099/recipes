@@ -94,6 +94,25 @@ test('transform: metric→US returns a US unit (approx ok)', () => {
   assert.match(w, /oz/);
 });
 
+test('transform: scales EVERY quantity incl. parentheticals (the 450g bug)', () => {
+  // dual-unit line: scale both, don't convert (recipe already gives both systems)
+  assert.equal(transform('1 lb (450 g) spaghetti', 1.5, 'us'), '1 ½ lb (675 g) spaghetti');
+  assert.equal(transform('1 lb (450 g) spaghetti', 1.5, 'metric'), '1 ½ lb (675 g) spaghetti');
+  assert.equal(transform('1 lb (450 g) spaghetti', 1, 'us'), '1 lb (450 g) spaghetti');
+  assert.equal(transform('1 lb (450g) spaghetti', 2, 'us'), '2 lb (900 g) spaghetti');
+});
+
+test('transform: metric weights scale and convert', () => {
+  assert.equal(transform('450 g flour', 2, 'metric'), '900 g flour');
+  assert.equal(transform('1 kg potatoes', 0.5, 'metric'), '0.5 kg potatoes');
+  assert.match(transform('450 g flour', 1, 'us'), /oz|lb/);
+});
+
+test('transform: leading count + parenthetical unit (cans)', () => {
+  assert.equal(transform('1 (15 oz) can tomatoes', 2, 'us'), '2 (30 oz) can tomatoes');
+  assert.equal(transform('1 (15 oz) can tomatoes', 1, 'metric'), '1 (425 g) can tomatoes');
+});
+
 test('convertTemps: F→C only in metric', () => {
   assert.equal(convertTemps('Bake at 350°F', 'metric'), 'Bake at 175°C');
   assert.equal(convertTemps('Bake at 350 degrees', 'metric'), 'Bake at 175°C');

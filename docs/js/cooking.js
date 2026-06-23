@@ -61,23 +61,50 @@ function convertUnit(amount, info, target) {
   return { amount: oz, unit:'oz', frac:true };
 }
 const fmtAmt = (a, frac) => (frac ? fmtFrac(a) : String(a));
+const fracPair = (a, b) => fmtFrac(a) + (b != null ? '–' + fmtFrac(b) : '');
+const plainPair = (a, b) => String(round2(a)) + (b != null ? '–' + String(round2(b)) : '');
+const unitInfo = (w) => (w ? UNITS[w.replace(/\.$/, '').toLowerCase()] : undefined);
 
-/** Scale a free-text ingredient line by `f` and (optionally) convert to `system`. */
+/**
+ * Scale a free-text ingredient line by `f` and convert to `system`.
+ * Scales EVERY "<qty> <unit>" in the line (incl. parentheticals) plus a leading
+ * bare count. If the line already mixes US + metric units, it scales both and
+ * does not convert (the recipe already gives both systems).
+ */
 export function transform(line, f, system) {
   if (line == null) return '';
   line = String(line);
-  const re = new RegExp(`^(\\s*)(${QTY})(?:\\s*[-–]\\s*(${QTY}))?\\s*([A-Za-z]+\\.?)?`);
-  const m = line.match(re); if (!m) return line;
-  let a1 = parseQty(m[2]); if (a1 == null) return line;
-  let a2 = m[3] != null ? parseQty(m[3]) : null;
-  a1 *= f; if (a2 != null) a2 *= f;
-  const raw = (m[4] || '').replace(/\.$/, ''), info = UNITS[raw.toLowerCase()], rest = line.slice(m[0].length);
-  if (info && system !== info.sys) {
-    const c1 = convertUnit(a1, info, system); let amt = fmtAmt(c1.amount, c1.frac);
-    if (a2 != null) { const c2 = convertUnit(a2, info, system); amt += '–' + fmtAmt(c2.amount, c2.frac); }
-    return `${m[1]}${amt} ${c1.unit}${rest}`;
+  const leadWs = line.match(/^\s*/)[0].length;
+
+  // Detect whether the line already carries both systems.
+  let hasUs = false, hasMetric = false;
+  for (const mm of line.matchAll(new RegExp(`${QTY}(?:\\s*[-–]\\s*${QTY})?\\s*([A-Za-z]+)`, 'g'))) {
+    const u = unitInfo(mm[1]);
+    if (u) (u.sys === 'us' ? (hasUs = true) : (hasMetric = true));
   }
-  return `${m[1]}${fmtFrac(a1) + (a2 != null ? '–' + fmtFrac(a2) : '')}${raw ? ' ' + raw : ''}${rest}`;
+  const dual = hasUs && hasMetric;
+
+  const re = new RegExp(`(${QTY})(?:\\s*[-–]\\s*(${QTY}))?(\\s*)([A-Za-z]+\\.?)?`, 'g');
+  return line.replace(re, (full, q1, q2, sp, word, offset) => {
+    const a1 = parseQty(q1);
+    if (a1 == null) return full;
+    const a2 = q2 != null ? parseQty(q2) : null;
+    const s1 = a1 * f, s2 = a2 != null ? a2 * f : null;
+    const info = unitInfo(word);
+    if (info) {
+      if (!dual && system !== info.sys) {            // single-system: convert
+        const c1 = convertUnit(s1, info, system);
+        let amt = fmtAmt(c1.amount, c1.frac);
+        if (s2 != null) { const c2 = convertUnit(s2, info, system); amt += '–' + fmtAmt(c2.amount, c2.frac); }
+        return `${amt} ${c1.unit}`;
+      }
+      const amt = info.sys === 'metric' ? plainPair(s1, s2) : fracPair(s1, s2);
+      return `${amt} ${word.replace(/\.$/, '')}`;       // keep unit, just scale
+    }
+    // No known unit: scale only if it's the leading count; leave other numbers alone.
+    if (offset === leadWs) return `${fracPair(s1, s2)}${sp}${word || ''}`;
+    return full;
+  });
 }
 
 /** Convert oven temps (°F → °C) in instruction text when viewing metric. */

@@ -33,6 +33,7 @@ window.recipePage = function recipePage() {
     _tid: 1,
     cookMode: false,
     cookStep: 0,
+    cookIngOpen: false,
 
     get id() { return new URLSearchParams(window.location.search).get('id'); },
     get totalTime() { return this.recipe ? (this.recipe.prep_time_minutes || 0) + (this.recipe.cook_time_minutes || 0) : 0; },
@@ -94,7 +95,7 @@ window.recipePage = function recipePage() {
     clock: fmtClock,
 
     // ── cook mode ──
-    enterCook() { this.cookStep = 0; this.cookMode = true; if (this.wakeSupported && !this.keepAwake) { this.keepAwake = true; this._syncWake(); } },
+    enterCook() { this.cookStep = 0; this.cookIngOpen = false; this.cookMode = true; if (this.wakeSupported && !this.keepAwake) { this.keepAwake = true; this._syncWake(); } },
     exitCook() { this.cookMode = false; },
     cookNext() { if (this.cookStep < this.convertedSteps.length - 1) this.cookStep++; },
     cookPrev() { if (this.cookStep > 0) this.cookStep--; },

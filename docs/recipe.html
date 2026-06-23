@@ -104,10 +104,7 @@
           <ol class="instruction-list checkable">
             <template x-for="(segs, i) in stepSegments" :key="i">
               <li :class="{ checked: checkedStep[i] }">
-                <template x-for="(seg, j) in segs" :key="j">
-                  <template x-if="seg.text"><span @click="toggleStep(i)" x-text="seg.text"></span></template>
-                  <template x-if="seg.timer"><button class="timer-chip" @click.stop="startTimer(seg.timer, seg.label)" x-text="'⏱ ' + seg.label"></button></template>
-                </template>
+                <template x-for="(seg, j) in segs" :key="j"><span><span x-show="seg.text" @click="toggleStep(i)" x-text="seg.text"></span><button x-show="seg.timer" class="timer-chip" @click.stop="startTimer(seg.timer, seg.label)" x-text="'⏱ ' + seg.label"></button></span></template>
               </li>
             </template>
           </ol>
@@ -125,21 +122,25 @@
         <span x-text="`Step ${cookStep + 1} of ${convertedSteps.length}`"></span>
         <button class="btn btn-ghost btn-sm" @click="exitCook()">✕ Done</button>
       </div>
-      <details class="cook-ingredients" open>
-        <summary>Ingredients</summary>
-        <ul>
-          <template x-for="(ing, i) in converted" :key="i"><li x-text="ing"></li></template>
-        </ul>
-      </details>
       <div class="cook-step">
-        <template x-for="(seg, j) in (stepSegments[cookStep] || [])" :key="j">
-          <template x-if="seg.text"><span x-text="seg.text"></span></template>
-          <template x-if="seg.timer"><button class="timer-chip lg" @click="startTimer(seg.timer, seg.label)" x-text="'⏱ ' + seg.label"></button></template>
-        </template>
+        <template x-for="(seg, j) in (stepSegments[cookStep] || [])" :key="j"><span><span x-show="seg.text" x-text="seg.text"></span><button x-show="seg.timer" class="timer-chip lg" @click="startTimer(seg.timer, seg.label)" x-text="'⏱ ' + seg.label"></button></span></template>
       </div>
       <div class="cook-nav">
         <button class="btn btn-ghost" @click="cookPrev()" :disabled="cookStep === 0">← Prev</button>
+        <button class="btn btn-ghost" @click="cookIngOpen = !cookIngOpen">🧺 Ingredients</button>
         <button class="btn btn-primary" @click="cookNext()" :disabled="cookStep >= convertedSteps.length - 1">Next →</button>
+      </div>
+
+      <!-- Ingredients bottom sheet -->
+      <div class="cook-sheet-backdrop" x-show="cookIngOpen" @click="cookIngOpen = false" x-transition.opacity></div>
+      <div class="cook-sheet" :class="{ open: cookIngOpen }">
+        <div class="cook-sheet-head">
+          <strong>Ingredients</strong>
+          <button class="btn btn-ghost btn-sm" @click="cookIngOpen = false">✕</button>
+        </div>
+        <ul>
+          <template x-for="(ing, i) in converted" :key="i"><li x-text="ing"></li></template>
+        </ul>
       </div>
     </div>
 
