@@ -20,7 +20,7 @@ test('search narrows then restores the list', async ({ page }) => {
   const before = await page.locator('.recipe-row').count();
   await page.fill('input[type=search]', 'zzz-not-a-real-recipe');
   await expect(page.locator('.recipe-row')).toHaveCount(0);
-  await expect(page.locator('.empty-state')).toBeVisible();
+  await expect(page.getByText('No recipes')).toBeVisible();
   await page.fill('input[type=search]', '');
   await expect(page.locator('.recipe-row')).toHaveCount(before);
 });
@@ -53,7 +53,10 @@ test('recipe: scale, US/Metric convert, and cook mode', async ({ page }) => {
   await expect(page.locator('.cook-step')).toBeVisible();
   await page.getByRole('button', { name: /Ingredients/ }).click();
   await expect(page.locator('.cook-sheet.open')).toBeVisible();
-  await page.getByRole('button', { name: /Done|✕ Done/ }).first().click();
+  // Dismiss the sheet via its backdrop before reaching the top controls.
+  await page.locator('.cook-sheet-backdrop').click();
+  await expect(page.locator('.cook-sheet.open')).toBeHidden();
+  await page.getByRole('button', { name: /Done/ }).click();
   await expect(page.locator('.cook-overlay')).toBeHidden();
 });
 
