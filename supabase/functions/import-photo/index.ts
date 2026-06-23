@@ -61,8 +61,6 @@ Deno.serve(async (req) => {
   } catch (_) { /* falls through to the empty check */ }
   if (!imageBase64) return json({ error: "No file provided" }, 400);
 
-  const endpoint =
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
   const payload = {
     contents: [{
       parts: [
@@ -73,29 +71,36 @@ Deno.serve(async (req) => {
     generationConfig: { responseMimeType: "application/json", temperature: 0 },
   };
 
-  // The flash models occasionally return 503 (overloaded). Retry with backoff so
-  // a transient spike doesn't surface to the user. Don't retry 429 — that's a
-  // real quota limit and retrying just burns the daily allowance faster.
+  // Free-tier flash capacity is shared and gets deprioritized (503) under load.
+  // Retry each model a couple of times, then fall back to lighter models that
+  // usually have spare capacity. 404 (model unavailable) / 429 (quota) also fall
+  // through to the next model; a hard 4xx stops everything.
+  const MODELS = [...new Set([MODEL, "gemini-3.5-flash-lite", "gemini-flash-latest"])];
   let resp: Response | null = null;
   let lastStatus = 0;
   let lastDetail = "";
-  for (let attempt = 0; attempt < 4; attempt++) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, 700 * attempt));
-    try {
-      resp = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    } catch (_) {
-      lastStatus = 0; lastDetail = "network error"; resp = null; continue;
+
+  for (const model of MODELS) {
+    let hardError = false;
+    for (let attempt = 0; attempt < 3 && !resp; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 600 * attempt));
+      let r: Response;
+      try {
+        r = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) },
+        );
+      } catch (_) {
+        lastStatus = 0; lastDetail = "network error"; continue;
+      }
+      if (r.ok) { resp = r; break; }
+      lastStatus = r.status;
+      lastDetail = (await r.text()).slice(0, 300);
+      if (r.status === 503) continue;                 // overloaded — retry this model
+      if (r.status === 404 || r.status === 429) break; // try the next model
+      hardError = true; break;                         // bad request etc. — stop
     }
-    if (resp.ok) break;
-    lastStatus = resp.status;
-    lastDetail = (await resp.text()).slice(0, 300);
-    resp = null;
-    if (lastStatus === 503) continue; // transient overload — retry
-    break;                            // other errors — stop now
+    if (resp || hardError) break;
   }
 
   if (!resp) {
