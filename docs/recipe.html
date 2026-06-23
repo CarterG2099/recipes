@@ -45,8 +45,8 @@
         <h1 x-text="recipe?.title"></h1>
         <div class="header-actions" style="flex:0 0 auto;">
           <button class="btn btn-ghost btn-sm" @click="share()">↗ Share</button>
-          <a class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isEditor" :href="`/edit.html?id=${recipe?.id}`">Edit</a>
-          <button class="btn btn-danger btn-sm" x-cloak x-show="$store.auth.isEditor" @click="del()">Delete</button>
+          <a class="btn btn-ghost btn-sm" x-cloak x-show="canEdit" :href="`/edit.html?id=${recipe?.id}`">Edit</a>
+          <button class="btn btn-danger btn-sm" x-cloak x-show="canEdit" @click="del()">Delete</button>
         </div>
       </div>
 

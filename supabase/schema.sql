@@ -109,18 +109,26 @@ drop policy if exists allowed_emails_admin_delete on public.allowed_emails;
 create policy allowed_emails_admin_delete on public.allowed_emails
     for delete to authenticated using (public.is_admin());
 
--- Write policies: only allowlisted, authenticated editors may modify recipes.
+-- Write policies: admins may modify any recipe; non-admin editors only ones they
+-- created (created_by = their email). Inserts must stamp created_by as the
+-- creator (admins exempt) so ownership can't be spoofed.
 drop policy if exists recipes_editor_insert on public.recipes;
 create policy recipes_editor_insert on public.recipes
-    for insert to authenticated with check (public.is_editor());
+    for insert to authenticated with check (
+        public.is_admin()
+        or (public.is_editor() and lower(coalesce(created_by, '')) = lower(coalesce(auth.email(), '')))
+    );
 
 drop policy if exists recipes_editor_update on public.recipes;
 create policy recipes_editor_update on public.recipes
-    for update to authenticated using (public.is_editor()) with check (public.is_editor());
+    for update to authenticated
+    using (public.is_editor() and (public.is_admin() or lower(coalesce(created_by, '')) = lower(coalesce(auth.email(), ''))))
+    with check (public.is_editor() and (public.is_admin() or lower(coalesce(created_by, '')) = lower(coalesce(auth.email(), ''))));
 
 drop policy if exists recipes_editor_delete on public.recipes;
 create policy recipes_editor_delete on public.recipes
-    for delete to authenticated using (public.is_editor());
+    for delete to authenticated
+    using (public.is_editor() and (public.is_admin() or lower(coalesce(created_by, '')) = lower(coalesce(auth.email(), ''))));
 
 -- ── Image storage ──────────────────────────────────────────────────────────
 -- Public bucket for recipe/card photos. Anyone can view; only allowlisted

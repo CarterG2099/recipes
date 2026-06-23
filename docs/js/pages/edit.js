@@ -95,12 +95,22 @@ window.editPage = function editPage() {
     async init() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { window.location.href = '/'; return; }
-      const { data: editor } = await supabase.rpc('is_editor');
+      const [{ data: editor }, { data: admin }] = await Promise.all([
+        supabase.rpc('is_editor'), supabase.rpc('is_admin'),
+      ]);
       if (!editor) { window.location.href = '/'; return; }
 
       if (!this.id) return;
       const { data, error } = await supabase.from('recipes').select('*').eq('id', this.id).maybeSingle();
       if (error || !data) { this.error = "Couldn't load this recipe for editing."; return; }
+
+      // Non-admins may only edit recipes they created (RLS also enforces this).
+      const me = (session.user.email || '').toLowerCase();
+      if (!admin && (data.created_by || '').toLowerCase() !== me) {
+        Alpine.store('ui').showToast('You can only edit recipes you added.');
+        window.location.href = `/recipe.html?id=${this.id}`;
+        return;
+      }
       this.form = {
         title: data.title || '',
         description: data.description || '',

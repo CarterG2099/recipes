@@ -90,6 +90,15 @@ window.recipePage = function recipePage() {
       return formatQty(this.scale) + '×';
     },
 
+    // Admins can edit anything; other editors only recipes they created.
+    get canEdit() {
+      const auth = window.Alpine?.store('auth');
+      if (!auth || !this.recipe) return false;
+      if (auth.isAdmin) return true;
+      const me = (auth.user?.email || '').toLowerCase();
+      return !!me && me === (this.recipe.created_by || '').toLowerCase();
+    },
+
     get scaledIngredients() {
       const list = this.recipe?.ingredients || [];
       return this.scale === 1 ? list : list.map((l) => scaleLine(l, this.scale));

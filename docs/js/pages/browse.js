@@ -18,8 +18,8 @@ window.browsePage = function browsePage() {
     async init() {
       const { data, error } = await supabase
         .from('recipes')
-        .select('id, title, description, ingredients, prep_time_minutes, cook_time_minutes, servings, tags')
-        .order('updated_at', { ascending: false });
+        .select('id, title, description, ingredients, prep_time_minutes, cook_time_minutes, servings, tags, created_at')
+        .order('created_at', { ascending: true });
       if (error) {
         this.error = "Couldn't load recipes. " + error.message;
       } else {
