@@ -43,7 +43,15 @@ async function readWithGemini(base64, mimeType) {
   const { data, error } = await supabase.functions.invoke('import-photo', {
     body: { imageBase64: base64, mimeType },
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    // supabase-js gives a generic message on non-2xx; dig out our real detail.
+    let detail = error.message || 'request failed';
+    try {
+      const body = await error.context.json();
+      if (body?.error) detail = body.error;
+    } catch (_) { /* body wasn't JSON */ }
+    throw new Error(detail);
+  }
   if (data?.error) throw new Error(data.error);
   return data;
 }
