@@ -73,21 +73,37 @@ Deno.serve(async (req) => {
     generationConfig: { responseMimeType: "application/json", temperature: 0 },
   };
 
-  let resp: Response;
-  try {
-    resp = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-  } catch (e) {
-    return json({ error: "Couldn't reach the image reader. Try again." }, 502);
+  // The flash models occasionally return 503 (overloaded). Retry with backoff so
+  // a transient spike doesn't surface to the user. Don't retry 429 — that's a
+  // real quota limit and retrying just burns the daily allowance faster.
+  let resp: Response | null = null;
+  let lastStatus = 0;
+  let lastDetail = "";
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 700 * attempt));
+    try {
+      resp = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch (_) {
+      lastStatus = 0; lastDetail = "network error"; resp = null; continue;
+    }
+    if (resp.ok) break;
+    lastStatus = resp.status;
+    lastDetail = (await resp.text()).slice(0, 300);
+    resp = null;
+    if (lastStatus === 503) continue; // transient overload — retry
+    break;                            // other errors — stop now
   }
 
-  if (!resp.ok) {
-    const detail = (await resp.text()).slice(0, 300);
-    console.error("Gemini HTTP", resp.status, detail);
-    return json({ error: `Image reader error (${resp.status}): ${detail}` }, 502);
+  if (!resp) {
+    console.error("Gemini HTTP", lastStatus, lastDetail);
+    const friendly = lastStatus === 503
+      ? "The reader is busy right now — please try again in a moment."
+      : `Image reader error (${lastStatus}): ${lastDetail}`;
+    return json({ error: friendly }, 502);
   }
 
   let extracted: Record<string, unknown>;
