@@ -27,6 +27,7 @@
   <header class="app-header" x-data>
     <a href="/" class="app-logo"><span class="logo-mark">🥗</span> Mom's Kitchen</a>
     <div class="header-actions">
+      <a href="/admin.html" class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isAdmin">Admin</a>
       <button class="btn btn-ghost btn-sm" @click="$store.auth.logout()">Sign out</button>
     </div>
   </header>

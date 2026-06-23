@@ -48,20 +48,24 @@ drop policy if exists recipes_public_read on public.recipes;
 create policy recipes_public_read on public.recipes
     for select to anon, authenticated using (true);
 
--- Editor allowlist. RLS on with no policies => unreachable by anon/authenticated;
--- only the service role and SECURITY DEFINER functions can read it.
+-- Editor/admin allowlist. Admins (is_admin) can also manage this list from the
+-- in-app Admin page; everyone in the table is an editor.
 create table if not exists public.allowed_emails (
-    email text primary key
+    email    text primary key,
+    is_admin boolean not null default false
 );
 alter table public.allowed_emails enable row level security;
 
--- Add the editors here (or via the Supabase dashboard).
-insert into public.allowed_emails (email) values ('cgividen20@gmail.com')
-    on conflict (email) do nothing;
+-- Seed admins (also editors).
+insert into public.allowed_emails (email, is_admin) values
+    ('cgividen20@gmail.com', true),
+    ('mgividen@gmail.com', true)
+    on conflict (email) do update set is_admin = true;
 
--- is_editor(): true when the logged-in user's email is allowlisted. SECURITY
--- DEFINER so it can read allowed_emails despite RLS. Called by the frontend to
--- decide whether to show edit controls, and by the write policies below.
+-- is_editor() / is_admin(): true when the logged-in email is allowlisted (and, for
+-- is_admin, flagged admin). SECURITY DEFINER so they read allowed_emails despite
+-- RLS. The frontend calls them to decide what controls to show; the policies below
+-- use them as the real boundary. Defined before the policies that reference them.
 create or replace function public.is_editor()
 returns boolean
 language sql
@@ -73,9 +77,37 @@ as $$
     where lower(email) = lower(coalesce(auth.email(), ''))
   );
 $$;
-
 revoke all on function public.is_editor() from public;
 grant execute on function public.is_editor() to anon, authenticated;
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.allowed_emails
+    where lower(email) = lower(coalesce(auth.email(), '')) and is_admin
+  );
+$$;
+revoke all on function public.is_admin() from public;
+grant execute on function public.is_admin() to anon, authenticated;
+
+-- Admins manage the allowlist directly (RLS-gated). is_editor()/is_admin() are
+-- SECURITY DEFINER so they bypass these policies and keep working.
+drop policy if exists allowed_emails_admin_select on public.allowed_emails;
+create policy allowed_emails_admin_select on public.allowed_emails
+    for select to authenticated using (public.is_admin());
+drop policy if exists allowed_emails_admin_insert on public.allowed_emails;
+create policy allowed_emails_admin_insert on public.allowed_emails
+    for insert to authenticated with check (public.is_admin());
+drop policy if exists allowed_emails_admin_update on public.allowed_emails;
+create policy allowed_emails_admin_update on public.allowed_emails
+    for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists allowed_emails_admin_delete on public.allowed_emails;
+create policy allowed_emails_admin_delete on public.allowed_emails
+    for delete to authenticated using (public.is_admin());
 
 -- Write policies: only allowlisted, authenticated editors may modify recipes.
 drop policy if exists recipes_editor_insert on public.recipes;

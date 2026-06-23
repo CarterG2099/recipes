@@ -101,6 +101,18 @@ body { background: var(--color-bg); }
 .recipe-columns { display: grid; grid-template-columns: 1fr 1.6fr; gap: var(--space-8); }
 @media (max-width: 640px) { .recipe-columns { grid-template-columns: 1fr; gap: var(--space-6); } }
 .recipe-section-title { font-family: var(--font-display); font-size: var(--text-sm); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--color-primary); margin: 0 0 var(--space-3); }
+.scale-control {
+  display: flex; align-items: center; gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.scale-control .scale-label-text { font-size: var(--text-sm); color: var(--color-text-muted); margin-right: var(--space-1); }
+.scale-control .btn-icon {
+  width: 30px; height: 30px; padding: 0; font-size: 1.1rem; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.scale-control .scale-value {
+  font-family: var(--font-display); font-weight: 700; min-width: 2.4em; text-align: center;
+}
 .ingredient-list { list-style: none; margin: 0; padding: 0; }
 .ingredient-list li { padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border); line-height: 1.45; }
 .instruction-list { margin: 0; padding-left: 1.4rem; }

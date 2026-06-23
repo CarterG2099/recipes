@@ -38,7 +38,14 @@ supabase/
 - **Writes require an allowlisted editor**: RLS insert/update/delete policies
   call `is_editor()`, which checks the logged-in email against `allowed_emails`.
   `is_editor()` is SECURITY DEFINER (the table is otherwise unreadable).
-- The edit page's redirect-if-not-editor is **UX only**; RLS is the real boundary.
+- **Admins** are allowlist rows with `is_admin=true` (also editors). The `/admin.html`
+  page lets them add/remove editors and grant/revoke admin, reading/writing
+  `allowed_emails` directly under admin-only RLS policies (`is_admin()`).
+- The edit/admin page redirect-if-not-allowed is **UX only**; RLS is the real boundary.
+- **Serving scaler**: `recipe.js` scales ingredient quantities client-side in ½
+  steps by parsing the leading number/fraction/range of each free-text line — no
+  structured ingredient data. (Metric↔imperial conversion would need structured
+  units; deliberately deferred.)
 - `import-url` re-checks `is_editor()` with the caller's JWT so it can't be used
   as an open URL-fetch proxy.
 

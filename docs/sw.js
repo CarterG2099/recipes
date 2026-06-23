@@ -2,12 +2,12 @@
  * Network-first for same-origin GETs (so deploys show up immediately when online)
  * with a cache fallback so the app shell still opens offline. Supabase requests
  * and non-GETs pass straight through — never cached. */
-const CACHE = 'moms-kitchen-v1';
+const CACHE = 'moms-kitchen-v2';
 const SHELL = [
-  '/', '/index.html', '/recipe.html', '/edit.html', '/manifest.json',
+  '/', '/index.html', '/recipe.html', '/edit.html', '/admin.html', '/manifest.json',
   '/css/tokens.css', '/css/base.css', '/css/components.css', '/css/pages.css',
   '/js/app.js', '/js/store.js', '/js/supabase.js',
-  '/js/pages/browse.js', '/js/pages/recipe.js', '/js/pages/edit.js',
+  '/js/pages/browse.js', '/js/pages/recipe.js', '/js/pages/edit.js', '/js/pages/admin.js',
   '/js/vendor/alpine.esm.js',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png',
 ];

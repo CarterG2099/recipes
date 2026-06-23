@@ -2,13 +2,14 @@
  * store.js — Alpine.js global stores (auth + ui), backed by supabase-js.
  */
 
-import { supabase, signIn, signOut, checkEditor } from './supabase.js';
+import { supabase, signIn, signOut, checkEditor, checkAdmin } from './supabase.js';
 
 export function registerAuthStore() {
   Alpine.store('auth', {
     user: null,
     isLoggedIn: false,
     isEditor: false,
+    isAdmin: false,
     ready: false,
 
     async init() {
@@ -21,7 +22,14 @@ export function registerAuthStore() {
     async _apply(session) {
       this.user = session?.user ?? null;
       this.isLoggedIn = !!session;
-      this.isEditor = session ? await checkEditor() : false;
+      if (session) {
+        const [editor, admin] = await Promise.all([checkEditor(), checkAdmin()]);
+        this.isEditor = editor;
+        this.isAdmin = admin;
+      } else {
+        this.isEditor = false;
+        this.isAdmin = false;
+      }
       this.ready = true;
     },
 

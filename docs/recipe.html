@@ -28,6 +28,7 @@
     <a href="/" class="app-logo"><span class="logo-mark">🥗</span> Mom's Kitchen</a>
     <div class="header-actions">
       <a href="/edit.html" class="btn btn-primary btn-sm" x-cloak x-show="$store.auth.isEditor">+ Add recipe</a>
+      <a href="/admin.html" class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isAdmin">Admin</a>
       <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isEditor" @click="$store.auth.logout()">Sign out</button>
       <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.ready && !$store.auth.isLoggedIn" @click="$store.auth.signIn()">Sign in</button>
     </div>
@@ -53,7 +54,7 @@
         <span x-show="recipe?.prep_time_minutes" x-text="`Prep ${recipe?.prep_time_minutes} min`"></span>
         <span x-show="recipe?.cook_time_minutes" x-text="`Cook ${recipe?.cook_time_minutes} min`"></span>
         <span x-show="totalTime" x-text="`Total ${totalTime} min`"></span>
-        <span x-show="recipe?.servings" x-text="`Serves ${recipe?.servings}`"></span>
+        <span x-show="recipe?.servings" x-text="`Serves ${scaledServings}`"></span>
       </div>
 
       <p class="text-muted" x-show="recipe?.description" x-text="recipe?.description" style="line-height:1.55; margin-top:0;"></p>
@@ -67,8 +68,14 @@
       <div class="recipe-columns">
         <section>
           <h2 class="recipe-section-title">Ingredients</h2>
+          <div class="scale-control">
+            <span class="scale-label-text">Batch</span>
+            <button class="btn btn-ghost btn-icon" @click="decScale()" :disabled="scale <= 0.5" aria-label="Less">−</button>
+            <span class="scale-value" x-text="scaleLabel"></span>
+            <button class="btn btn-ghost btn-icon" @click="incScale()" aria-label="More">+</button>
+          </div>
           <ul class="ingredient-list">
-            <template x-for="(ing, i) in (recipe?.ingredients || [])" :key="i"><li x-text="ing"></li></template>
+            <template x-for="(ing, i) in scaledIngredients" :key="i"><li x-text="ing"></li></template>
           </ul>
         </section>
         <section>

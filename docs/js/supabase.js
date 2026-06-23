@@ -30,3 +30,9 @@ export async function checkEditor() {
   const { data, error } = await supabase.rpc('is_editor');
   return !error && data === true;
 }
+
+/** Ask the DB whether the current session is an admin (can manage the allowlist). */
+export async function checkAdmin() {
+  const { data, error } = await supabase.rpc('is_admin');
+  return !error && data === true;
+}
