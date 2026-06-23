@@ -35,6 +35,7 @@ window.recipePage = function recipePage() {
     cookMode: false,
     cookStep: 0,
     cookIngOpen: false,
+    confirmDelete: false,
 
     get id() { return new URLSearchParams(window.location.search).get('id'); },
     get totalTime() { return this.recipe ? (this.recipe.prep_time_minutes || 0) + (this.recipe.cook_time_minutes || 0) : 0; },
@@ -150,11 +151,15 @@ window.recipePage = function recipePage() {
       catch (_) { Alpine.store('ui').showToast('Copy this link: ' + url); }
     },
 
-    async del() {
-      if (!confirm(`Delete "${this.recipe.title}"? This can't be undone.`)) return;
+    del() { this.confirmDelete = true; },
+    async doDelete() {
       const { error } = await supabase.from('recipes').delete().eq('id', this.recipe.id);
-      if (error) Alpine.store('ui').showToast('Delete failed: ' + error.message);
-      else window.location.href = '/';
+      if (error) {
+        this.confirmDelete = false;
+        Alpine.store('ui').showToast('Delete failed: ' + error.message);
+      } else {
+        window.location.href = '/';
+      }
     },
   };
 };

@@ -147,6 +147,21 @@
       </div>
     </div>
 
+    <!-- Delete confirmation -->
+    <div class="modal-overlay" x-show="confirmDelete" x-cloak x-transition.opacity
+         @keydown.escape.window="confirmDelete = false" @click.self="confirmDelete = false">
+      <div class="modal" style="max-width:420px;">
+        <div class="modal-header"><h2 class="modal-title">Delete recipe?</h2></div>
+        <p style="margin:0 0 var(--space-2); line-height:1.5;">
+          Delete “<strong x-text="recipe?.title"></strong>”? This can’t be undone.
+        </p>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" @click="confirmDelete = false">Cancel</button>
+          <button class="btn btn-danger" @click="doDelete()">Delete</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Active timers (fixed at the bottom) -->
     <div class="timer-bar" x-show="timers.length" x-cloak>
       <template x-for="t in timers" :key="t.id">
