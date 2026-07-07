@@ -8,7 +8,7 @@ const SHELL = [
   '/css/tokens.css', '/css/base.css', '/css/components.css', '/css/pages.css',
   '/js/app.js', '/js/store.js', '/js/supabase.js', '/js/cooking.js',
   '/js/pages/browse.js', '/js/pages/recipe.js', '/js/pages/edit.js', '/js/pages/admin.js',
-  '/js/vendor/alpine.esm.js',
+  '/js/vendor/alpine.esm.js', '/js/vendor/Sortable.min.js',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png',
 ];
 
