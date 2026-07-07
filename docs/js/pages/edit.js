@@ -100,6 +100,11 @@ window.editPage = function editPage() {
       ]);
       if (!editor) { window.location.href = '/'; return; }
 
+      this.$nextTick(() => {
+        this._makeSortable(this.$refs.ingredientList, 'ingredients');
+        this._makeSortable(this.$refs.instructionList, 'instructions');
+      });
+
       if (!this.id) return;
       const { data, error } = await supabase.from('recipes').select('*').eq('id', this.id).maybeSingle();
       if (error || !data) { this.error = "Couldn't load this recipe for editing."; return; }
@@ -124,6 +129,26 @@ window.editPage = function editPage() {
         image_url: data.image_url || null,
         notes: data.notes || '',
       };
+    },
+
+    // Drag-to-reorder for an ingredient/instruction list. Sortable moves the DOM
+    // node itself, which would desync Alpine's index-keyed x-for — so we put the
+    // row back where it was and reorder the array instead, letting Alpine re-render.
+    _makeSortable(el, key) {
+      new Sortable(el, {
+        handle: '.drag-handle',
+        draggable: '.line-row',
+        animation: 150,
+        onEnd: (evt) => {
+          const { item, from, oldIndex, newIndex } = evt;
+          if (oldIndex === newIndex) return;
+          from.removeChild(item);
+          const rows = from.querySelectorAll(':scope > .line-row');
+          from.insertBefore(item, rows[oldIndex] || null);
+          const arr = this.form[key];
+          arr.splice(newIndex, 0, arr.splice(oldIndex, 1)[0]);
+        },
+      });
     },
 
     _applyDraft(draft) {
@@ -184,7 +209,7 @@ window.editPage = function editPage() {
         this.error = 'Photo import failed: ' + (e.message || '');
       }
       this.importing = false;
-      if (this.$refs.photo) this.$refs.photo.value = '';
+      event.target.value = '';
     },
 
     // Attach/replace the stored photo without re-reading the recipe.
@@ -200,7 +225,7 @@ window.editPage = function editPage() {
         this.error = 'Upload failed: ' + (e.message || '');
       }
       this.importing = false;
-      if (this.$refs.attach) this.$refs.attach.value = '';
+      event.target.value = '';
     },
 
     _payload() {

@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="/css/components.css">
   <link rel="stylesheet" href="/css/pages.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.js" integrity="sha384-CQbEv3UOeYwlaBLdPF5KqEagCP39Q1KpvJC6Gwa3UGjZAwMvpA+0TFxSSnrgb4MX" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js" integrity="sha384-DgmC6Xe2bSN2WjTDXzWYbUbxyhNP+NNkGDR/g78pCXV7E7rcVTGxVg0uIVCUUcBc" crossorigin="anonymous"></script>
 </head>
 <body data-page="edit">
 
@@ -54,6 +55,8 @@
             <span class="tile-title">📷 A photo</span>
             <span class="tile-hint">A handwritten card or printout — it reads it and keeps the photo.</span>
             <input type="file" accept="image/*" x-ref="photo" @change="importPhoto($event)" :disabled="importing">
+            <button class="btn btn-ghost btn-sm" @click="$refs.photoCamera.click()" :disabled="importing">📸 Take a photo</button>
+            <input type="file" accept="image/*" capture="environment" x-ref="photoCamera" @change="importPhoto($event)" hidden>
           </div>
         </div>
         <div class="busy-note" x-show="importing"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Reading…</div>
@@ -94,6 +97,8 @@
           <img x-show="form.image_url" :src="form.image_url" alt="Recipe photo">
           <div>
             <input type="file" accept="image/*" x-ref="attach" @change="attachPhoto($event)" :disabled="importing">
+            <div><button class="btn btn-ghost btn-sm" @click="$refs.attachCamera.click()" :disabled="importing" style="margin-top:8px;">📸 Take a photo</button></div>
+            <input type="file" accept="image/*" capture="environment" x-ref="attachCamera" @change="attachPhoto($event)" hidden>
             <div><button class="btn btn-ghost btn-sm" x-show="form.image_url" @click="form.image_url = null" style="margin-top:8px;">Remove photo</button></div>
           </div>
         </div>
@@ -102,25 +107,31 @@
       <!-- Ingredients -->
       <div class="form-section">
         <h2 class="recipe-section-title">Ingredients</h2>
-        <template x-for="(ing, i) in form.ingredients" :key="i">
-          <div class="line-row">
-            <input class="input" type="text" x-model="form.ingredients[i]" placeholder="1 cup flour">
-            <button class="btn btn-ghost btn-icon" @click="form.ingredients.splice(i, 1)" title="Remove">✕</button>
-          </div>
-        </template>
+        <div x-ref="ingredientList">
+          <template x-for="(ing, i) in form.ingredients" :key="i">
+            <div class="line-row">
+              <span class="drag-handle" title="Drag to reorder">⠿</span>
+              <input class="input" type="text" x-model="form.ingredients[i]" placeholder="1 cup flour">
+              <button class="btn btn-ghost btn-icon" @click="form.ingredients.splice(i, 1)" title="Remove">✕</button>
+            </div>
+          </template>
+        </div>
         <button class="btn btn-ghost btn-sm" @click="form.ingredients.push('')">+ Add ingredient</button>
       </div>
 
       <!-- Instructions -->
       <div class="form-section">
         <h2 class="recipe-section-title">Instructions</h2>
-        <template x-for="(step, i) in form.instructions" :key="i">
-          <div class="line-row">
-            <span class="text-muted" style="padding-top:.5rem; min-width:1.5rem;" x-text="(i + 1) + '.'"></span>
-            <textarea class="input" rows="2" x-model="form.instructions[i]"></textarea>
-            <button class="btn btn-ghost btn-icon" @click="form.instructions.splice(i, 1)" title="Remove">✕</button>
-          </div>
-        </template>
+        <div x-ref="instructionList">
+          <template x-for="(step, i) in form.instructions" :key="i">
+            <div class="line-row">
+              <span class="drag-handle" title="Drag to reorder">⠿</span>
+              <span class="text-muted" style="padding-top:.5rem; min-width:1.5rem;" x-text="(i + 1) + '.'"></span>
+              <textarea class="input" rows="2" x-model="form.instructions[i]"></textarea>
+              <button class="btn btn-ghost btn-icon" @click="form.instructions.splice(i, 1)" title="Remove">✕</button>
+            </div>
+          </template>
+        </div>
         <button class="btn btn-ghost btn-sm" @click="form.instructions.push('')">+ Add step</button>
       </div>
 
