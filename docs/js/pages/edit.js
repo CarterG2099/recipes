@@ -135,12 +135,32 @@ window.editPage = function editPage() {
     // node itself, which would desync Alpine's index-keyed x-for — so we put the
     // row back where it was and reorder the array instead, letting Alpine re-render.
     _makeSortable(el, key) {
+      // Alpine runs init() twice (auto-call + x-init); a second Sortable on the
+      // same list hijacks Sortable's element→instance map and breaks touch drags.
+      if (el._sortable) return;
+      el._sortable = true;
       new Sortable(el, {
         handle: '.drag-handle',
         draggable: '.line-row',
         animation: 150,
+        // Sortable's default HTML5-native drag mode never engages from touch;
+        // its fallback (own ghost + pointer tracking) works everywhere.
+        forceFallback: true,
+        delay: 150,
+        delayOnTouchOnly: true,
+        touchStartThreshold: 4,
+        fallbackTolerance: 3,
+        scroll: true,
+        forceAutoScrollFallback: true,
+        scrollSensitivity: 50,
+        // Sortable clones the dragged row (drag ghost + internal clone); the
+        // clones inherit x-ignore so Alpine doesn't initialize their orphaned
+        // x-for bindings ("i is not defined").
+        onChoose: (evt) => evt.item.setAttribute('x-ignore', ''),
+        onUnchoose: (evt) => evt.item.removeAttribute('x-ignore'),
         onEnd: (evt) => {
           const { item, from, oldIndex, newIndex } = evt;
+          item.removeAttribute('x-ignore');
           if (oldIndex === newIndex) return;
           from.removeChild(item);
           const rows = from.querySelectorAll(':scope > .line-row');

@@ -197,8 +197,10 @@ body { background: var(--color-bg); }
 .line-row { display: flex; gap: var(--space-2); margin-bottom: var(--space-2); align-items: flex-start; }
 .line-row textarea, .line-row .input { flex: 1; }
 .line-row .drag-handle {
-  padding-top: .5rem; color: var(--color-text-muted); cursor: grab;
+  color: var(--color-text-muted); cursor: grab;
   user-select: none; -webkit-user-select: none; touch-action: none;
+  min-width: 2.75rem; min-height: 2.75rem;
+  display: flex; align-items: center; justify-content: center;
 }
 .line-row.sortable-ghost { opacity: 0.4; }
 .field-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
