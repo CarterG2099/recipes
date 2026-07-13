@@ -18,13 +18,25 @@ create table if not exists public.recipes (
     servings          text,
     tags              text[] not null default '{}',
     source_url        text,
-    image_url         text,                                 -- photo of the recipe/card (Supabase Storage)
+    image_urls        text[] not null default '{}',         -- photos of the recipe/card (Supabase Storage)
     is_favorite       boolean not null default false,        -- shared "family favorites"
     notes             text,                                  -- family notes/tweaks
     created_by        text,
     created_at        timestamptz not null default now(),
     updated_at        timestamptz not null default now()
 );
+
+-- Migration for pre-existing databases: single image_url → image_urls array.
+alter table public.recipes add column if not exists image_urls text[] not null default '{}';
+do $$
+begin
+    if exists (select 1 from information_schema.columns
+               where table_schema = 'public' and table_name = 'recipes' and column_name = 'image_url') then
+        update public.recipes set image_urls = array[image_url]
+            where image_url is not null and image_urls = '{}';
+        alter table public.recipes drop column image_url;
+    end if;
+end $$;
 
 create index if not exists recipes_updated_at_idx on public.recipes (updated_at desc);
 

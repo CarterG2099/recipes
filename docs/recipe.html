@@ -113,8 +113,12 @@
         <a class="text-muted" :href="recipe?.source_url" target="_blank" rel="noopener noreferrer">Source ↗</a>
       </p>
 
-      <!-- Photo last so a late load never shifts the recipe content above it. -->
-      <img class="recipe-photo" x-show="recipe?.image_url" :src="recipe?.image_url" alt="Recipe photo" loading="lazy" style="margin-top:var(--space-8);">
+      <!-- Photos last so a late load never shifts the recipe content above them. -->
+      <div x-show="recipe?.image_urls?.length" style="margin-top:var(--space-8);">
+        <template x-for="url in recipe?.image_urls || []" :key="url">
+          <img class="recipe-photo" :src="url" alt="Recipe photo" loading="lazy">
+        </template>
+      </div>
     </article>
 
     <!-- Cook mode: one big step at a time -->

@@ -61,13 +61,14 @@ nothing is auto-saved.
 - Photo (incl. handwritten cards): `import-photo` Edge Function calls the Google
   **Gemini** API (free tier, `gemini-3.5-flash`, set via the GEMINI_MODEL secret) with a JSON response schema. The
   `GEMINI_API_KEY` is a function secret (Supabase dashboard), never in the browser.
-  `importPhoto()` also uploads the photo to Storage and sets it as `image_url`, so
-  one action both reads the card and keeps it.
+  `importPhoto()` also uploads the photo to Storage and appends it to
+  `image_urls`, so one action both reads the card and keeps it.
 
 ## Images
 
-- `recipes.image_url` is a public URL in the `recipe-images` Storage bucket
-  (public read; editor-only writes via `is_editor()`). Uploaded with supabase-js.
+- `recipes.image_urls` is a `text[]` of public URLs in the `recipe-images`
+  Storage bucket (public read; editor-only writes via `is_editor()`). Uploaded
+  with supabase-js; the edit page accepts multiple photos per recipe.
 - Shown on the recipe detail page; the browse list stays text-only.
 
 ## Design

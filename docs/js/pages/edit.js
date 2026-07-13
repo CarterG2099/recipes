@@ -19,7 +19,7 @@ function emptyForm() {
     prep_time_minutes: null, cook_time_minutes: null,
     servings: '', tagsText: '',
     ingredients: [''], instructions: [''],
-    source_url: '', image_url: null, notes: '',
+    source_url: '', image_urls: [], notes: '',
   };
 }
 
@@ -126,7 +126,7 @@ window.editPage = function editPage() {
         ingredients: (data.ingredients || []).length ? [...data.ingredients] : [''],
         instructions: (data.instructions || []).length ? [...data.instructions] : [''],
         source_url: data.source_url || '',
-        image_url: data.image_url || null,
+        image_urls: [...(data.image_urls || [])],
         notes: data.notes || '',
       };
     },
@@ -222,7 +222,7 @@ window.editPage = function editPage() {
       this.importing = true; this.importWarning = ''; this.error = null;
       try {
         const { blob, base64, mimeType } = await prepImage(file);
-        this.form.image_url = await uploadBlob(blob, 'jpg', mimeType);
+        this.form.image_urls.push(await uploadBlob(blob, 'jpg', mimeType));
         this._applyDraft(await readWithGemini(base64, mimeType));
         Alpine.store('ui').showToast('Read from photo — review and save.');
       } catch (e) {
@@ -232,15 +232,17 @@ window.editPage = function editPage() {
       event.target.value = '';
     },
 
-    // Attach/replace the stored photo without re-reading the recipe.
+    // Attach stored photos (one or many) without re-reading the recipe.
     async attachPhoto(event) {
-      const file = event.target.files?.[0];
-      if (!file) return;
+      const files = [...(event.target.files || [])];
+      if (!files.length) return;
       this.importing = true; this.error = null;
       try {
-        const { blob, mimeType } = await prepImage(file);
-        this.form.image_url = await uploadBlob(blob, 'jpg', mimeType);
-        Alpine.store('ui').showToast('Photo added.');
+        for (const file of files) {
+          const { blob, mimeType } = await prepImage(file);
+          this.form.image_urls.push(await uploadBlob(blob, 'jpg', mimeType));
+        }
+        Alpine.store('ui').showToast(files.length > 1 ? `${files.length} photos added.` : 'Photo added.');
       } catch (e) {
         this.error = 'Upload failed: ' + (e.message || '');
       }
@@ -256,7 +258,7 @@ window.editPage = function editPage() {
         cook_time_minutes: this.form.cook_time_minutes || null,
         servings: this.form.servings.trim() || null,
         source_url: this.form.source_url.trim() || null,
-        image_url: this.form.image_url || null,
+        image_urls: this.form.image_urls,
         notes: this.form.notes.trim() || null,
         tags: this.form.tagsText.split(',').map(t => t.trim()).filter(Boolean),
         ingredients: this.form.ingredients.map(s => s.trim()).filter(Boolean),

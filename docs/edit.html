@@ -90,16 +90,20 @@
         </div>
       </div>
 
-      <!-- Photo of the card -->
+      <!-- Photos of the card/dish -->
       <div class="form-section">
-        <h2 class="recipe-section-title">Recipe photo</h2>
+        <h2 class="recipe-section-title">Recipe photos</h2>
         <div class="image-preview">
-          <img x-show="form.image_url" :src="form.image_url" alt="Recipe photo">
+          <template x-for="(url, i) in form.image_urls" :key="url">
+            <figure class="image-thumb">
+              <img :src="url" alt="Recipe photo">
+              <button class="btn btn-ghost btn-icon" @click="form.image_urls.splice(i, 1)" title="Remove photo">✕</button>
+            </figure>
+          </template>
           <div>
-            <input type="file" accept="image/*" x-ref="attach" @change="attachPhoto($event)" :disabled="importing">
+            <input type="file" accept="image/*" multiple x-ref="attach" @change="attachPhoto($event)" :disabled="importing">
             <div><button class="btn btn-ghost btn-sm" @click="$refs.attachCamera.click()" :disabled="importing" style="margin-top:8px;">📸 Take a photo</button></div>
             <input type="file" accept="image/*" capture="environment" x-ref="attachCamera" @change="attachPhoto($event)" hidden>
-            <div><button class="btn btn-ghost btn-sm" x-show="form.image_url" @click="form.image_url = null" style="margin-top:8px;">Remove photo</button></div>
           </div>
         </div>
       </div>
