@@ -53,8 +53,8 @@
           </div>
           <div class="import-tile">
             <span class="tile-title">📷 A photo</span>
-            <span class="tile-hint">A handwritten card or printout — it reads it and keeps the photo.</span>
-            <input type="file" accept="image/*" x-ref="photo" @change="importPhoto($event)" :disabled="importing">
+            <span class="tile-hint">A handwritten card or printout — pick both sides at once and it reads them as one recipe, keeping the photos.</span>
+            <input type="file" accept="image/*" multiple x-ref="photo" @change="importPhoto($event)" :disabled="importing">
             <button class="btn btn-ghost btn-sm" @click="$refs.photoCamera.click()" :disabled="importing">📸 Take a photo</button>
             <input type="file" accept="image/*" capture="environment" x-ref="photoCamera" @change="importPhoto($event)" hidden>
           </div>

@@ -61,8 +61,10 @@ nothing is auto-saved.
 - Photo (incl. handwritten cards): `import-photo` Edge Function calls the Google
   **Gemini** API (free tier, `gemini-3.5-flash`, set via the GEMINI_MODEL secret) with a JSON response schema. The
   `GEMINI_API_KEY` is a function secret (Supabase dashboard), never in the browser.
-  `importPhoto()` also uploads the photo to Storage and appends it to
-  `image_urls`, so one action both reads the card and keeps it.
+  `importPhoto()` accepts several photos at once (e.g. front and back of a
+  card) and sends them as one Gemini request that returns one combined draft;
+  it also uploads each photo to Storage and appends it to `image_urls`, so one
+  action both reads the card and keeps it.
 
 ## Images
 

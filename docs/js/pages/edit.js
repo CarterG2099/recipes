@@ -61,10 +61,11 @@ async function uploadBlob(blob, ext, contentType) {
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-// Send a file (image or PDF) to the Gemini-backed reader and return its draft.
-async function readWithGemini(base64, mimeType) {
+// Send files (images or a PDF) to the Gemini-backed reader and return its
+// single combined draft. images: [{ imageBase64, mimeType }]
+async function readWithGemini(images) {
   const { data, error } = await supabase.functions.invoke('import-photo', {
-    body: { imageBase64: base64, mimeType },
+    body: { images },
   });
   if (error) {
     // supabase-js gives a generic message on non-2xx; dig out our real detail.
@@ -206,7 +207,7 @@ window.editPage = function editPage() {
       this.importing = true; this.importWarning = ''; this.error = null;
       try {
         const base64 = await blobToBase64(file);
-        this._applyDraft(await readWithGemini(base64, file.type || 'application/pdf'));
+        this._applyDraft(await readWithGemini([{ imageBase64: base64, mimeType: file.type || 'application/pdf' }]));
         Alpine.store('ui').showToast('Read from PDF — review and save.');
       } catch (e) {
         this.error = 'PDF import failed: ' + (e.message || '');
@@ -215,16 +216,21 @@ window.editPage = function editPage() {
       if (this.$refs.pdf) this.$refs.pdf.value = '';
     },
 
-    // Snap/upload a recipe-card photo: shrink it, store it, AND read it with Gemini.
+    // Snap/upload recipe-card photos (front and back together is fine): shrink
+    // and store each, then read them all as ONE recipe with Gemini.
     async importPhoto(event) {
-      const file = event.target.files?.[0];
-      if (!file) return;
+      const files = [...(event.target.files || [])];
+      if (!files.length) return;
       this.importing = true; this.importWarning = ''; this.error = null;
       try {
-        const { blob, base64, mimeType } = await prepImage(file);
-        this.form.image_urls.push(await uploadBlob(blob, 'jpg', mimeType));
-        this._applyDraft(await readWithGemini(base64, mimeType));
-        Alpine.store('ui').showToast('Read from photo — review and save.');
+        const images = [];
+        for (const file of files) {
+          const { blob, base64, mimeType } = await prepImage(file);
+          this.form.image_urls.push(await uploadBlob(blob, 'jpg', mimeType));
+          images.push({ imageBase64: base64, mimeType });
+        }
+        this._applyDraft(await readWithGemini(images));
+        Alpine.store('ui').showToast(`Read from ${files.length > 1 ? 'photos' : 'photo'} — review and save.`);
       } catch (e) {
         this.error = 'Photo import failed: ' + (e.message || '');
       }

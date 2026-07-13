@@ -1,6 +1,7 @@
-// import-photo — reads a photo or PDF of a recipe (often a handwritten card)
-// with the Google Gemini API (free tier) and returns a structured draft for the
-// edit form to pre-fill. It never writes to the database; the human reviews/saves.
+// import-photo — reads one or more photos (or a PDF) of a recipe — often a
+// handwritten card, sometimes front and back — with the Google Gemini API (free
+// tier) and returns one structured draft for the edit form to pre-fill. It never
+// writes to the database; the human reviews/saves.
 //
 // Editor-only: we check is_editor() with the caller's JWT. The Gemini key is read
 // from the GEMINI_API_KEY function secret and never exposed to the browser.
@@ -27,7 +28,9 @@ const PROMPT =
   "You are reading a photo or PDF of a recipe — sometimes a handwritten card, " +
   "sometimes a printout or web export. Transcribe it faithfully. Expand only " +
   "obvious abbreviations (PB -> peanut butter, tsp, tbsp). Do not invent steps, " +
-  "times, or servings.\n\n" +
+  "times, or servings. You may be given several photos of the SAME recipe (the " +
+  "front and back of a card, or multiple pages) — combine them, in the order " +
+  "given, into one complete recipe.\n\n" +
   "Return ONLY a JSON object with exactly these keys:\n" +
   '{"title": string, "ingredients": [string], "instructions": [string], ' +
   '"prep_time_minutes": number|null, "cook_time_minutes": number|null, ' +
@@ -53,20 +56,29 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) return json({ error: "Image import isn't configured yet (missing GEMINI_API_KEY)." }, 503);
 
-  let imageBase64 = "";
-  let mimeType = "image/jpeg";
+  // New callers send { images: [{ imageBase64, mimeType }] } (e.g. front and
+  // back of a card); the old single { imageBase64, mimeType } shape still works.
+  let images: { imageBase64: string; mimeType: string }[] = [];
   try {
     const body = await req.json();
-    imageBase64 = body.imageBase64 ?? "";
-    mimeType = body.mimeType ?? "image/jpeg";
+    if (Array.isArray(body.images)) {
+      images = body.images
+        .filter((i: { imageBase64?: string }) => i?.imageBase64)
+        .map((i: { imageBase64: string; mimeType?: string }) => ({
+          imageBase64: i.imageBase64,
+          mimeType: i.mimeType ?? "image/jpeg",
+        }));
+    } else if (body.imageBase64) {
+      images = [{ imageBase64: body.imageBase64, mimeType: body.mimeType ?? "image/jpeg" }];
+    }
   } catch (_) { /* falls through to the empty check */ }
-  if (!imageBase64) return json({ error: "No file provided" }, 400);
+  if (!images.length) return json({ error: "No file provided" }, 400);
 
   const payload = {
     contents: [{
       parts: [
         { text: PROMPT },
-        { inline_data: { mime_type: mimeType, data: imageBase64 } },
+        ...images.map((i) => ({ inline_data: { mime_type: i.mimeType, data: i.imageBase64 } })),
       ],
     }],
     generationConfig: { responseMimeType: "application/json", temperature: 0 },
