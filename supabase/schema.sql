@@ -175,3 +175,24 @@ create policy "recipe images editor update" on storage.objects
 drop policy if exists "recipe images editor delete" on storage.objects;
 create policy "recipe images editor delete" on storage.objects
   for delete to authenticated using (bucket_id = 'recipe-images' and public.is_editor());
+
+-- ── Nutrition ──────────────────────────────────────────────────────────────
+-- Per serving. Additive and nullable, so nothing changes for a recipe nobody
+-- has estimated. No new policies: these are columns on recipes, and
+-- recipes_editor_update already governs them.
+--
+-- servings_count is separate from `servings` because that one is free text
+-- ("4", "18", but nothing stops "4-6 servings"); dividing needs a number.
+-- nutrition_source records how the numbers got there — the Gemini estimator or
+-- a person — and editing an estimated value flips it to manual.
+alter table public.recipes
+  add column if not exists servings_count       numeric,
+  add column if not exists calories             numeric,
+  add column if not exists protein_g            numeric,
+  add column if not exists carbs_g              numeric,
+  add column if not exists fat_g                numeric,
+  add column if not exists fiber_g              numeric,
+  add column if not exists sodium_mg            numeric,
+  add column if not exists nutrition_source     text
+    check (nutrition_source is null or nutrition_source in ('gemini','manual')),
+  add column if not exists nutrition_updated_at timestamptz;

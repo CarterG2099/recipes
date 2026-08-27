@@ -6,6 +6,7 @@
 
 import { supabase } from '../supabase.js';
 import { fmtFrac, transform, convertTemps, segmentStep, fmtClock } from '../cooking.js';
+import { nutritionLine, hasNutrition } from '../nutrition.js';
 
 function beep() {
   try {
@@ -47,6 +48,50 @@ window.recipePage = function recipePage() {
       if (a.isAdmin) return true;
       const me = (a.user?.email || '').toLowerCase();
       return !!me && me === (this.recipe.created_by || '').toLowerCase();
+    },
+
+    // ── nutrition ──
+    get hasNutrition() { return hasNutrition(this.recipe); },
+    get nutritionLine() { return nutritionLine(this.recipe); },
+    get nutritionNote() {
+      const r = this.recipe;
+      if (!r || !hasNutrition(r)) return '';
+      const per = r.servings_count ? `per serving, ${r.servings_count} servings` : 'per serving';
+      const how = r.nutrition_source === 'gemini' ? 'estimated by AI' : r.nutrition_source === 'manual' ? 'entered by hand' : '';
+      return how ? `${per} · ${how}` : per;
+    },
+
+    /**
+     * Copy someone else's recipe into your own list.
+     *
+     * Needs no policy: reading any row is public, and the insert is stamped
+     * with your own email, which is exactly what recipes_editor_insert requires.
+     * It is also the escape hatch for the one thing the owner-only update policy
+     * forbids — fixing the nutrition on a recipe you did not write.
+     */
+    get canFork() {
+      const a = window.Alpine?.store('auth');
+      return !!(a?.isEditor && this.recipe && !this.canEdit);
+    },
+    async forkRecipe() {
+      const a = window.Alpine?.store('auth');
+      const me = a?.user?.email;
+      if (!me || !this.recipe) return;
+      const r = this.recipe;
+      const clone = {
+        title: r.title, description: r.description, ingredients: r.ingredients, instructions: r.instructions,
+        prep_time_minutes: r.prep_time_minutes, cook_time_minutes: r.cook_time_minutes, servings: r.servings,
+        tags: r.tags, source_url: r.source_url, image_urls: r.image_urls, notes: r.notes,
+        servings_count: r.servings_count, calories: r.calories, protein_g: r.protein_g, carbs_g: r.carbs_g,
+        fat_g: r.fat_g, fiber_g: r.fiber_g, sodium_mg: r.sodium_mg, nutrition_source: r.nutrition_source,
+        is_favorite: false,
+        created_by: me,
+      };
+      const { data, error } = await supabase.from('recipes').insert(clone).select('id').single();
+      if (error) { Alpine.store('ui').showToast('Could not copy: ' + error.message); return; }
+      // Land on the copy's edit page: it is yours now, and this is where you
+      // change whatever you copied it to change.
+      window.location.href = `/edit.html?id=${data.id}`;
     },
 
     get converted() { return (this.recipe?.ingredients || []).map((l) => transform(l, this.scale, this.system)); },

@@ -8,6 +8,7 @@
  */
 
 import { supabase } from '../supabase.js';
+import { MACROS, servingsCountFrom, hasNutrition, nutritionChanged } from '../nutrition.js';
 
 const BUCKET = 'recipe-images';
 const MAX_EDGE = 1600;   // px — plenty for reading a card; keeps uploads small on mobile
@@ -20,7 +21,19 @@ function emptyForm() {
     servings: '', tagsText: '',
     ingredients: [''], instructions: [''],
     source_url: '', image_urls: [], notes: '',
+    // Per serving. Null means unknown, and stays unknown until a person or the
+    // estimator says otherwise — never zero by default.
+    servings_count: null,
+    calories: null, protein_g: null, carbs_g: null, fat_g: null, fiber_g: null, sodium_mg: null,
+    nutrition_source: null,
   };
+}
+
+/** Just the nutrition fields, for change detection at save time. */
+function nutritionOf(form) {
+  const out = { servings_count: form.servings_count };
+  for (const m of MACROS) out[m] = form[m];
+  return out;
 }
 
 function blobToBase64(blob) {
@@ -89,6 +102,16 @@ window.editPage = function editPage() {
     saving: false,
     error: null,
 
+    // Nutrition. `breakdown` is the estimator's per-ingredient table, shown so a
+    // wrong total can be traced to the line that caused it. `_nutritionBefore`
+    // is what was loaded, and `_estimated` what the estimator wrote — together
+    // they decide, at save, whether the numbers are gemini's, a person's, or
+    // unchanged.
+    estimating: false,
+    breakdown: null,
+    _nutritionBefore: null,
+    _estimated: null,
+
     get id() {
       return new URLSearchParams(window.location.search).get('id');
     },
@@ -129,7 +152,89 @@ window.editPage = function editPage() {
         source_url: data.source_url || '',
         image_urls: [...(data.image_urls || [])],
         notes: data.notes || '',
+        servings_count: data.servings_count ?? null,
+        calories: data.calories ?? null,
+        protein_g: data.protein_g ?? null,
+        carbs_g: data.carbs_g ?? null,
+        fat_g: data.fat_g ?? null,
+        fiber_g: data.fiber_g ?? null,
+        sodium_mg: data.sodium_mg ?? null,
+        nutrition_source: data.nutrition_source ?? null,
       };
+      this._nutritionBefore = nutritionOf(this.form);
+    },
+
+    /** "estimated" / "entered by hand" / nothing, for the label beside the fields. */
+    get nutritionSourceLabel() {
+      if (!hasNutrition(this.form)) return '';
+      return this.form.nutrition_source === 'gemini' ? 'Estimated by AI — check before trusting'
+        : this.form.nutrition_source === 'manual' ? 'Entered by hand' : '';
+    },
+
+    /**
+     * Ask Gemini for per-ingredient nutrition and fill the per-serving fields.
+     *
+     * The numbers land in the form, not the database — saving is still a
+     * separate, deliberate step, the same as every import on this page. If the
+     * row already carries hand-entered figures, confirm before overwriting them:
+     * a person's correction should not be clobbered by re-running the guess.
+     */
+    async estimateNutrition() {
+      const ingredients = this.form.ingredients.map((s) => s.trim()).filter(Boolean);
+      if (!ingredients.length) { this.error = 'Add the ingredients first — the estimate is built from them.'; return; }
+
+      if (this.form.nutrition_source === 'manual' && hasNutrition(this.form)) {
+        const ok = window.confirm('These numbers were entered by hand. Replace them with an estimate?');
+        if (!ok) return;
+      }
+
+      // The servings text is free-form ("4-6"); the estimator needs a number.
+      // Fill the count from it if the field is empty, and show what was used.
+      if (this.form.servings_count == null || this.form.servings_count === '') {
+        this.form.servings_count = servingsCountFrom(this.form.servings);
+      }
+
+      this.estimating = true; this.error = null; this.breakdown = null;
+      try {
+        const { data, error } = await supabase.functions.invoke('estimate-nutrition', {
+          body: {
+            title: this.form.title.trim(),
+            ingredients,
+            servings_count: this.form.servings_count || null,
+          },
+        });
+        if (error) {
+          let detail = error.message || 'request failed';
+          try { const body = await error.context.json(); if (body?.error) detail = body.error; } catch (_) { /* not JSON */ }
+          throw new Error(detail);
+        }
+        if (data?.error) throw new Error(data.error);
+
+        this.breakdown = data;
+        if (data.servings_count && (this.form.servings_count == null || this.form.servings_count === '')) {
+          this.form.servings_count = data.servings_count;
+        }
+        if (data.per_serving) {
+          for (const m of MACROS) this.form[m] = data.per_serving[m];
+          this.form.nutrition_source = 'gemini';
+          this._estimated = nutritionOf(this.form);
+          Alpine.store('ui').showToast('Estimated — check the numbers, then save.');
+        } else {
+          this.importWarning = data.warning || 'Enter how many servings this makes, then estimate again.';
+        }
+        if (data.warning && data.per_serving) this.importWarning = data.warning;
+      } catch (e) {
+        this.error = 'Nutrition estimate failed: ' + (e.message || '');
+      }
+      this.estimating = false;
+    },
+
+    clearNutrition() {
+      for (const m of MACROS) this.form[m] = null;
+      this.form.servings_count = null;
+      this.form.nutrition_source = null;
+      this.breakdown = null;
+      this._estimated = null;
     },
 
     // Drag-to-reorder for an ingredient/instruction list. Sortable moves the DOM
@@ -269,7 +374,40 @@ window.editPage = function editPage() {
         tags: this.form.tagsText.split(',').map(t => t.trim()).filter(Boolean),
         ingredients: this.form.ingredients.map(s => s.trim()).filter(Boolean),
         instructions: this.form.instructions.map(s => s.trim()).filter(Boolean),
+        ...this._nutritionPayload(),
       };
+    },
+
+    /**
+     * The nine nutrition columns, with the source worked out from what happened.
+     *
+     * Untouched since the estimator filled it: gemini. Any field differs from
+     * what the estimator wrote, or from what was loaded when there was no
+     * estimate: manual — a person's number, which a later re-estimate must ask
+     * before replacing. Nothing changed at all: keep whatever was stored, and do
+     * not touch nutrition_updated_at.
+     */
+    _nutritionPayload() {
+      const num = (v) => (v === '' || v == null ? null : Number(v));
+      const now = nutritionOf(this.form);
+      const out = { servings_count: num(this.form.servings_count) };
+      for (const m of MACROS) out[m] = num(this.form[m]);
+
+      if (!hasNutrition(out)) {
+        out.nutrition_source = null;
+        if (this._nutritionBefore && hasNutrition(this._nutritionBefore)) out.nutrition_updated_at = new Date().toISOString();
+        return out;
+      }
+
+      const changedSinceLoad = nutritionChanged(this._nutritionBefore, now);
+      const stillTheEstimate = this._estimated && !nutritionChanged(this._estimated, now);
+
+      if (stillTheEstimate) out.nutrition_source = 'gemini';
+      else if (changedSinceLoad) out.nutrition_source = 'manual';
+      else out.nutrition_source = this.form.nutrition_source ?? 'manual';
+
+      if (changedSinceLoad) out.nutrition_updated_at = new Date().toISOString();
+      return out;
     },
 
     async save() {

@@ -47,6 +47,7 @@
           <button class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isEditor" @click="toggleFavorite()"
             x-text="recipe?.is_favorite ? '⭐ Favorited' : '☆ Favorite'"></button>
           <button class="btn btn-ghost btn-sm" @click="share()">↗ Share</button>
+          <button class="btn btn-ghost btn-sm" x-cloak x-show="canFork" @click="forkRecipe()" title="Make your own copy you can edit">⎘ Copy to mine</button>
           <a class="btn btn-ghost btn-sm" x-cloak x-show="canEdit" :href="`/edit.html?id=${recipe?.id}`">Edit</a>
           <button class="btn btn-danger btn-sm" x-cloak x-show="canEdit" @click="del()">Delete</button>
         </div>
@@ -63,6 +64,12 @@
 
       <div class="cardtags" style="margin-bottom:var(--space-6);">
         <template x-for="tag in (recipe?.tags || [])" :key="tag"><span class="badge" x-text="tag"></span></template>
+      </div>
+
+      <div class="recipe-notes" x-show="hasNutrition" x-cloak>
+        <span class="notes-label">Nutrition</span>
+        <p><strong x-text="nutritionLine"></strong></p>
+        <p class="text-muted" style="font-size:var(--text-xs); margin-top:2px;" x-text="nutritionNote"></p>
       </div>
 
       <div class="recipe-notes" x-show="recipe?.notes" x-cloak>

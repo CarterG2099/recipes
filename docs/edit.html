@@ -139,6 +139,68 @@
         <button class="btn btn-ghost btn-sm" @click="form.instructions.push('')">+ Add step</button>
       </div>
 
+      <!-- Nutrition, per serving. Filled by hand or estimated from the
+           ingredients above; either way it is reviewed here before it is saved. -->
+      <div class="form-section">
+        <h2 class="recipe-section-title">Nutrition <span class="text-muted" style="font-weight:500; font-size:var(--text-sm);">per serving</span></h2>
+        <div class="field-grid">
+          <div class="form-group">
+            <label class="form-label">Servings this makes</label>
+            <input class="input" type="number" min="0.5" step="0.5" x-model.number="form.servings_count"
+                   :placeholder="form.servings ? `from “${form.servings}”` : 'e.g. 4'">
+          </div>
+          <div class="form-group"><label class="form-label">Calories</label><input class="input" type="number" min="0" step="1" x-model.number="form.calories"></div>
+          <div class="form-group"><label class="form-label">Protein (g)</label><input class="input" type="number" min="0" step="0.1" x-model.number="form.protein_g"></div>
+          <div class="form-group"><label class="form-label">Carbs (g)</label><input class="input" type="number" min="0" step="0.1" x-model.number="form.carbs_g"></div>
+          <div class="form-group"><label class="form-label">Fat (g)</label><input class="input" type="number" min="0" step="0.1" x-model.number="form.fat_g"></div>
+          <div class="form-group"><label class="form-label">Fibre (g)</label><input class="input" type="number" min="0" step="0.1" x-model.number="form.fiber_g"></div>
+          <div class="form-group"><label class="form-label">Sodium (mg)</label><input class="input" type="number" min="0" step="1" x-model.number="form.sodium_mg"></div>
+        </div>
+
+        <div class="header-actions" style="justify-content:flex-start; margin-top:var(--space-3); flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" @click="estimateNutrition()" :disabled="estimating || importing">
+            <span x-text="estimating ? 'Estimating…' : '✨ Estimate from ingredients'"></span>
+          </button>
+          <button class="btn btn-ghost btn-sm" @click="clearNutrition()" x-show="form.calories != null || form.protein_g != null">Clear</button>
+          <span class="text-muted" style="font-size:var(--text-xs);" x-text="nutritionSourceLabel"></span>
+        </div>
+        <div class="busy-note" x-show="estimating"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Working out each ingredient…</div>
+
+        <!-- The estimator's working, so a bad total can be traced to a line. -->
+        <details x-show="breakdown?.ingredients?.length" x-cloak style="margin-top:var(--space-3);">
+          <summary class="text-muted" style="cursor:pointer; font-size:var(--text-sm);">
+            How it got there — <span x-text="breakdown?.ingredients?.length"></span> ingredients,
+            <span x-text="Math.round(breakdown?.totals?.calories ?? 0)"></span> kcal for the whole recipe
+            <span x-show="breakdown?.servings_guessed">(servings guessed)</span>
+          </summary>
+          <div style="overflow-x:auto; margin-top:var(--space-2);">
+            <table style="width:100%; border-collapse:collapse; font-size:var(--text-sm);">
+              <thead>
+                <tr class="text-muted" style="text-align:right;">
+                  <th style="text-align:left; padding:4px 8px;">Ingredient</th>
+                  <th style="padding:4px 8px;">kcal</th><th style="padding:4px 8px;">P</th>
+                  <th style="padding:4px 8px;">C</th><th style="padding:4px 8px;">F</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(row, i) in breakdown?.ingredients || []" :key="i">
+                  <tr style="text-align:right; border-top:1px solid var(--color-border);">
+                    <td style="text-align:left; padding:4px 8px;">
+                      <span x-text="row.ingredient"></span>
+                      <div class="text-muted" style="font-size:var(--text-xs);" x-show="row.note" x-text="row.note"></div>
+                    </td>
+                    <td style="padding:4px 8px;" x-text="row.calories == null ? '—' : Math.round(row.calories)"></td>
+                    <td style="padding:4px 8px;" x-text="row.protein_g == null ? '—' : Math.round(row.protein_g)"></td>
+                    <td style="padding:4px 8px;" x-text="row.carbs_g == null ? '—' : Math.round(row.carbs_g)"></td>
+                    <td style="padding:4px 8px;" x-text="row.fat_g == null ? '—' : Math.round(row.fat_g)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+
       <div class="form-section">
         <div class="form-group">
           <label class="form-label">Source URL (optional)</label>
