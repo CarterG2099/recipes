@@ -126,7 +126,7 @@ as $$
   join public.allowed_emails them on them.household = me.household
   where lower(me.email) = lower(coalesce(auth.email(), ''));
 $$;
-revoke all on function public.my_household() from public;
+revoke all on function public.my_household() from public, anon;
 grant execute on function public.my_household() to authenticated;
 
 -- can_edit(owner): whether the logged-in user may modify a recipe whose
@@ -142,7 +142,7 @@ as $$
       or (coalesce(owner, '') <> '' and lower(owner) = lower(coalesce(auth.email(), '')))
       or lower(coalesce(owner, '')) in (select public.my_household());
 $$;
-revoke all on function public.can_edit(text) from public;
+revoke all on function public.can_edit(text) from public, anon;
 grant execute on function public.can_edit(text) to authenticated;
 
 -- Any editor can (un)favorite any recipe — favorites are a shared family list, so
