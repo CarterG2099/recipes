@@ -9,6 +9,7 @@
 
 import { supabase } from '../supabase.js';
 import { MACROS, servingsCountFrom, hasNutrition, nutritionChanged } from '../nutrition.js';
+import { canEditRecipe } from '../access.js';
 
 const BUCKET = 'recipe-images';
 const MAX_EDGE = 1600;   // px — plenty for reading a card; keeps uploads small on mobile
@@ -119,8 +120,8 @@ window.editPage = function editPage() {
     async init() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { window.location.href = '/'; return; }
-      const [{ data: editor }, { data: admin }] = await Promise.all([
-        supabase.rpc('is_editor'), supabase.rpc('is_admin'),
+      const [{ data: editor }, { data: admin }, { data: household }] = await Promise.all([
+        supabase.rpc('is_editor'), supabase.rpc('is_admin'), supabase.rpc('my_household'),
       ]);
       if (!editor) { window.location.href = '/'; return; }
 
@@ -133,10 +134,10 @@ window.editPage = function editPage() {
       const { data, error } = await supabase.from('recipes').select('*').eq('id', this.id).maybeSingle();
       if (error || !data) { this.error = "Couldn't load this recipe for editing."; return; }
 
-      // Non-admins may only edit recipes they created (RLS also enforces this).
-      const me = (session.user.email || '').toLowerCase();
-      if (!admin && (data.created_by || '').toLowerCase() !== me) {
-        Alpine.store('ui').showToast('You can only edit recipes you added.');
+      // Non-admins may only edit recipes they or their household created (RLS
+      // also enforces this).
+      if (!canEditRecipe(data.created_by, { email: session.user.email, isAdmin: admin, household: household || [] })) {
+        Alpine.store('ui').showToast('You can only edit recipes you or your household added.');
         window.location.href = `/recipe.html?id=${this.id}`;
         return;
       }

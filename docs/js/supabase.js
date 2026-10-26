@@ -36,3 +36,9 @@ export async function checkAdmin() {
   const { data, error } = await supabase.rpc('is_admin');
   return !error && data === true;
 }
+
+/** Emails in the current session's household (including its own); [] if none. */
+export async function getHousehold() {
+  const { data, error } = await supabase.rpc('my_household');
+  return !error && Array.isArray(data) ? data : [];
+}

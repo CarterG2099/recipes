@@ -70,6 +70,10 @@ create table if not exists public.allowed_emails (
 );
 alter table public.allowed_emails enable row level security;
 
+-- Editors with the same household label share their recipes: each can edit and
+-- delete the others' (see can_edit()). Null means no household.
+alter table public.allowed_emails add column if not exists household text;
+
 -- Seed admins (also editors).
 insert into public.allowed_emails (email, is_admin) values
     ('cgividen20@gmail.com', true),
@@ -108,6 +112,39 @@ $$;
 revoke all on function public.is_admin() from public;
 grant execute on function public.is_admin() to authenticated;
 
+-- my_household(): emails sharing the logged-in user's household, their own
+-- included; empty when they have none. The frontend uses it to show Edit on a
+-- household member's recipe (docs/js/access.js mirrors can_edit()).
+create or replace function public.my_household()
+returns setof text
+language sql
+security definer
+set search_path = ''
+as $$
+  select lower(them.email)
+  from public.allowed_emails me
+  join public.allowed_emails them on them.household = me.household
+  where lower(me.email) = lower(coalesce(auth.email(), ''));
+$$;
+revoke all on function public.my_household() from public;
+grant execute on function public.my_household() to authenticated;
+
+-- can_edit(owner): whether the logged-in user may modify a recipe whose
+-- created_by is `owner` — admins anything, others their own recipes and their
+-- household's. Callers still require is_editor() separately.
+create or replace function public.can_edit(owner text)
+returns boolean
+language sql
+security definer
+set search_path = ''
+as $$
+  select public.is_admin()
+      or (coalesce(owner, '') <> '' and lower(owner) = lower(coalesce(auth.email(), '')))
+      or lower(coalesce(owner, '')) in (select public.my_household());
+$$;
+revoke all on function public.can_edit(text) from public;
+grant execute on function public.can_edit(text) to authenticated;
+
 -- Any editor can (un)favorite any recipe — favorites are a shared family list, so
 -- this bypasses the owner-only update policy via SECURITY DEFINER.
 create or replace function public.set_favorite(rid bigint, val boolean)
@@ -134,8 +171,8 @@ create policy allowed_emails_admin_delete on public.allowed_emails
     for delete to authenticated using (public.is_admin());
 
 -- Write policies: admins may modify any recipe; non-admin editors only ones they
--- created (created_by = their email). Inserts must stamp created_by as the
--- creator (admins exempt) so ownership can't be spoofed.
+-- or their household created (can_edit()). Inserts must stamp created_by as the
+-- creator themselves (admins exempt) so ownership can't be spoofed.
 drop policy if exists recipes_editor_insert on public.recipes;
 create policy recipes_editor_insert on public.recipes
     for insert to authenticated with check (
@@ -146,13 +183,13 @@ create policy recipes_editor_insert on public.recipes
 drop policy if exists recipes_editor_update on public.recipes;
 create policy recipes_editor_update on public.recipes
     for update to authenticated
-    using (public.is_editor() and (public.is_admin() or lower(coalesce(created_by, '')) = lower(coalesce(auth.email(), ''))))
-    with check (public.is_editor() and (public.is_admin() or lower(coalesce(created_by, '')) = lower(coalesce(auth.email(), ''))));
+    using (public.is_editor() and public.can_edit(created_by))
+    with check (public.is_editor() and public.can_edit(created_by));
 
 drop policy if exists recipes_editor_delete on public.recipes;
 create policy recipes_editor_delete on public.recipes
     for delete to authenticated
-    using (public.is_editor() and (public.is_admin() or lower(coalesce(created_by, '')) = lower(coalesce(auth.email(), ''))));
+    using (public.is_editor() and public.can_edit(created_by));
 
 -- ── Image storage ──────────────────────────────────────────────────────────
 -- Public bucket for recipe/card photos. Anyone can view; only allowlisted
