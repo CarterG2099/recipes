@@ -68,3 +68,9 @@ test('tap-to-check strikes an ingredient through', async ({ page }) => {
   await first.click();
   await expect(first).toHaveClass(/checked/);
 });
+
+test('signed out: no Mine/Others filter, every recipe listed', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.recipe-row').first()).toBeVisible();
+  await expect(page.locator('.owner-chip')).toHaveCount(0);
+});
