@@ -1,18 +1,20 @@
 /**
  * browse.js — recipe list with search, multi-tag filter, sort, and a favorites
- * filter. Loads the full collection once and filters/sorts in memory.
+ * filter, plus Mine/Others when signed in (Mine includes the user's household; the tag
+ * chips follow the view). Signed-out visitors see everything.
+ * Loads the full collection once and filters/sorts in memory.
  */
 
 import { supabase } from '../supabase.js';
-import { filterRecipes } from '../cooking.js';
+import { filterRecipes, filterByOwner, collectTags } from '../cooking.js';
 
 window.browsePage = function browsePage() {
   return {
     all: [],
-    tags: [],
     search: '',
     activeTags: [],       // recipes must match ALL selected tags
     favoritesOnly: false,
+    owner: 'mine',        // mine | others — only applied when signed in
     sort: 'oldest',       // oldest | newest | az
     loading: true,
     error: null,
@@ -20,17 +22,34 @@ window.browsePage = function browsePage() {
     async init() {
       const { data, error } = await supabase
         .from('recipes')
-        .select('id, title, description, ingredients, prep_time_minutes, cook_time_minutes, servings, tags, is_favorite, created_at')
+        .select('id, title, description, ingredients, prep_time_minutes, cook_time_minutes, servings, tags, is_favorite, created_by, created_at')
         .order('created_at', { ascending: true });
       if (error) {
         this.error = "Couldn't load recipes. " + error.message;
       } else {
         this.all = data || [];
-        const seen = new Set();
-        for (const r of this.all) for (const t of (r.tags || [])) if (t) seen.add(t);
-        this.tags = [...seen].sort((a, b) => a.localeCompare(b));
       }
       this.loading = false;
+    },
+
+    setOwner(o) {
+      if (this.owner === o) return;
+      this.owner = o;
+      this.activeTags = [];   // tags are per view; a selection from the other view would hide everything
+    },
+
+    // Signed in: Mine/Others over the user plus their household. Signed out: everything.
+    get ownerFilter() {
+      const a = Alpine.store('auth');
+      const email = a.user?.email;
+      return email
+        ? { owner: this.owner, mine: [email, ...(a.household || [])] }
+        : { owner: 'all', mine: [] };
+    },
+
+    get tags() {
+      const { owner, mine } = this.ownerFilter;
+      return collectTags(filterByOwner(this.all, owner, mine));
     },
 
     toggleTag(t) {
@@ -44,6 +63,7 @@ window.browsePage = function browsePage() {
       return filterRecipes(this.all, {
         search: this.search, activeTags: this.activeTags,
         favoritesOnly: this.favoritesOnly, sort: this.sort,
+        ...this.ownerFilter,
       });
     },
 

@@ -45,6 +45,12 @@
     </div>
 
     <div class="tag-filter-row" x-cloak>
+      <template x-if="$store.auth.isLoggedIn">
+        <span style="display:contents">
+          <button class="tag-chip owner-chip" :class="{ active: owner === 'mine' }" @click="setOwner('mine')">Mine</button>
+          <button class="tag-chip owner-chip" :class="{ active: owner === 'others' }" @click="setOwner('others')">Others</button>
+        </span>
+      </template>
       <button class="tag-chip" :class="{ active: favoritesOnly }" @click="favoritesOnly = !favoritesOnly">⭐ Favorites</button>
       <template x-for="tag in tags" :key="tag">
         <button class="tag-chip" :class="{ active: isTagActive(tag) }" @click="toggleTag(tag)" x-text="tag"></button>

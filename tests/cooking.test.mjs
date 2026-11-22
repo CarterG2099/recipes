@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseQty, fmtFrac, transform, convertTemps, parseTimers, segmentStep, fmtClock, filterRecipes,
+  filterByOwner, collectTags,
 } from '../docs/js/cooking.js';
 
 test('parseQty: integers, decimals, fractions, unicode, mixed', () => {
@@ -219,4 +220,60 @@ test('filterRecipes: handles empty input and missing fields', () => {
   const sparse = [{ title: 'Plain' }];
   assert.deepEqual(filterRecipes(sparse, { search: 'plain' }).length, 1);
   assert.deepEqual(filterRecipes(sparse, { activeTags: ['x'] }).length, 0);
+});
+
+const OWNED = [
+  { title: 'Mine Lower', created_by: 'me@example.com', tags: ['dinner'], ingredients: [] },
+  { title: 'Mine Mixed Case', created_by: 'Me@Example.COM', tags: ['baking'], ingredients: [] },
+  { title: 'Partner', created_by: 'partner@example.com', tags: ['soup', 'dinner'], ingredients: [] },
+  { title: 'Theirs', created_by: 'them@example.com', tags: ['mom'], ingredients: [] },
+  { title: 'Nobody', created_by: null, tags: ['old', ''], ingredients: [] },
+];
+const titles = (list) => list.map((x) => x.title);
+
+test('filterRecipes: owner mine matches created_by case-insensitively', () => {
+  assert.deepEqual(titles(filterRecipes(OWNED, { owner: 'mine', mine: ['ME@example.com'] })), ['Mine Lower', 'Mine Mixed Case']);
+});
+
+test('filterRecipes: owner mine includes household members', () => {
+  assert.deepEqual(titles(filterRecipes(OWNED, { owner: 'mine', mine: ['me@example.com', 'Partner@example.com'] })),
+    ['Mine Lower', 'Mine Mixed Case', 'Partner']);
+});
+
+test('filterRecipes: owner others excludes the household and includes unowned recipes', () => {
+  assert.deepEqual(titles(filterRecipes(OWNED, { owner: 'others', mine: ['me@example.com', 'partner@example.com'] })), ['Theirs', 'Nobody']);
+});
+
+test('filterRecipes: owner all (the default) ignores created_by', () => {
+  assert.equal(filterRecipes(OWNED, { owner: 'all', mine: ['me@example.com'] }).length, 5);
+  assert.equal(filterRecipes(OWNED).length, 5);
+});
+
+test('filterByOwner: empty or blank emails never match unowned recipes', () => {
+  assert.deepEqual(filterByOwner(OWNED, 'mine', []), []);
+  assert.deepEqual(filterByOwner(OWNED, 'mine', ['', null]), []);
+  assert.equal(filterByOwner(OWNED, 'others', ['']).length, 5);
+  assert.deepEqual(filterByOwner(null, 'mine', ['me@example.com']), []);
+});
+
+test('filterRecipes: owner combines with search and favorites', () => {
+  const list = [
+    { title: 'My Pie', created_by: 'me@example.com', tags: [], ingredients: [], is_favorite: true },
+    { title: 'My Stew', created_by: 'me@example.com', tags: [], ingredients: [], is_favorite: false },
+    { title: 'Their Pie', created_by: 'them@example.com', tags: [], ingredients: [], is_favorite: true },
+  ];
+  assert.deepEqual(titles(filterRecipes(list, { owner: 'mine', mine: ['me@example.com'], search: 'pie' })), ['My Pie']);
+  assert.deepEqual(titles(filterRecipes(list, { owner: 'others', mine: ['me@example.com'], favoritesOnly: true })), ['Their Pie']);
+});
+
+test('collectTags: distinct, sorted, blanks dropped', () => {
+  assert.deepEqual(collectTags(OWNED), ['baking', 'dinner', 'mom', 'old', 'soup']);
+  assert.deepEqual(collectTags([]), []);
+  assert.deepEqual(collectTags(null), []);
+});
+
+test('collectTags over an owner view only shows that view\'s tags', () => {
+  const mine = ['me@example.com', 'partner@example.com'];
+  assert.deepEqual(collectTags(filterByOwner(OWNED, 'mine', mine)), ['baking', 'dinner', 'soup']);
+  assert.deepEqual(collectTags(filterByOwner(OWNED, 'others', mine)), ['mom', 'old']);
 });

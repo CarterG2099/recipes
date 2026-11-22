@@ -161,12 +161,34 @@ export function fmtClock(s) {
 }
 
 /** Filter + sort the recipe list for the browse page. */
-export function filterRecipes(all, { search = '', activeTags = [], favoritesOnly = false, sort = 'oldest' } = {}) {
+/**
+ * owner: 'mine' | 'others' | 'all'. `mine` is the emails whose recipes count as
+ * the viewer's (themselves plus their household). created_by is matched
+ * case-insensitively, like the RLS policies; recipes with no created_by count as
+ * someone else's.
+ */
+export function filterByOwner(all, owner = 'all', mine = []) {
+  if (owner === 'all') return all || [];
+  const emails = new Set(mine.filter(Boolean).map((e) => String(e).toLowerCase()));
+  return (all || []).filter((r) => {
+    const isMine = emails.has(String(r.created_by || '').toLowerCase());
+    return owner === 'mine' ? isMine : !isMine;
+  });
+}
+
+/** Distinct non-empty tags across `list`, sorted. */
+export function collectTags(list) {
+  const seen = new Set();
+  for (const r of list || []) for (const t of (r.tags || [])) if (t) seen.add(t);
+  return [...seen].sort((a, b) => a.localeCompare(b));
+}
+
+export function filterRecipes(all, { search = '', activeTags = [], favoritesOnly = false, sort = 'oldest', owner = 'all', mine = [] } = {}) {
   // Multi-term AND search: every whitespace-separated term must appear somewhere
   // (title, description, ingredients, or tags), in any order. "flour sugar" finds
   // recipes containing both.
   const terms = String(search).toLowerCase().split(/\s+/).filter(Boolean);
-  let list = (all || []).filter((r) => {
+  let list = filterByOwner(all, owner, mine).filter((r) => {
     if (favoritesOnly && !r.is_favorite) return false;
     if (activeTags.length && !activeTags.every((t) => (r.tags || []).includes(t))) return false;
     if (!terms.length) return true;
