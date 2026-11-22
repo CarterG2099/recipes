@@ -7,6 +7,7 @@
 import { supabase } from '../supabase.js';
 import { fmtFrac, transform, convertTemps, segmentStep, fmtClock } from '../cooking.js';
 import { nutritionLine, hasNutrition } from '../nutrition.js';
+import { canEditRecipe } from '../access.js';
 
 function beep() {
   try {
@@ -45,9 +46,7 @@ window.recipePage = function recipePage() {
     get canEdit() {
       const a = window.Alpine?.store('auth');
       if (!a || !this.recipe) return false;
-      if (a.isAdmin) return true;
-      const me = (a.user?.email || '').toLowerCase();
-      return !!me && me === (this.recipe.created_by || '').toLowerCase();
+      return canEditRecipe(this.recipe.created_by, { email: a.user?.email, isAdmin: a.isAdmin, household: a.household });
     },
 
     // ── nutrition ──
