@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob: https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob: https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Edit recipe — Mom's Kitchen</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>">
@@ -35,67 +35,117 @@
 
   <main class="page-content" x-data="editPage()" x-init="init()">
     <div class="edit-form">
-      <h1 x-text="id ? 'Edit recipe' : 'New recipe'" style="margin-bottom:var(--space-6);"></h1>
 
-      <!-- New recipe: pick where it's coming from first; the form appears once
-           that source has been read (or "Type it in" is picked). -->
-      <div class="form-section" x-show="!id">
-        <h2 class="recipe-section-title">Where's this recipe from?</h2>
-
-        <div class="import-options" x-show="!source">
-          <button type="button" class="import-tile source-choice" @click="pickSource('link')">
-            <span class="tile-title">🔗 A link</span>
-            <span class="tile-hint">A recipe website.</span>
-          </button>
-          <button type="button" class="import-tile source-choice" @click="pickSource('screenshot')">
-            <span class="tile-title">📱 A screenshot</span>
-            <span class="tile-hint">A TikTok, Instagram or Facebook post.</span>
-          </button>
-          <button type="button" class="import-tile source-choice" @click="pickSource('photo')">
-            <span class="tile-title">📷 A photo</span>
-            <span class="tile-hint">A handwritten card or printout.</span>
-          </button>
-          <button type="button" class="import-tile source-choice" @click="pickSource('pdf')">
-            <span class="tile-title">📄 A PDF</span>
-            <span class="tile-hint">Any recipe PDF — even a scanned one.</span>
-          </button>
-          <button type="button" class="import-tile source-choice" @click="pickSource('manual')">
-            <span class="tile-title">✍️ Type it in</span>
-            <span class="tile-hint">Start with a blank recipe.</span>
-          </button>
+      <!-- New recipe: a few short steps before the form. -->
+      <div class="wizard" x-show="!id && step !== 'review'" x-cloak>
+        <div class="wizard-top">
+          <button type="button" class="wizard-back" x-show="step === 'input'" @click="back()" aria-label="Back">←</button>
+          <ol class="wizard-dots" :aria-label="`Step ${stepNumber} of 3`">
+            <template x-for="n in 3" :key="n">
+              <li :class="{ on: n <= stepNumber, now: n === stepNumber }"></li>
+            </template>
+          </ol>
         </div>
 
-        <div x-show="source" x-cloak>
-          <div class="source-picked">
-            <span x-text="sourceLabel"></span>
-            <button type="button" class="btn btn-ghost btn-sm" @click="source = null" :disabled="importing">Change</button>
+        <!-- 1. Where's it from? Tapping a card moves on. -->
+        <section class="wizard-step" x-show="step === 'source'">
+          <h1 class="wizard-title">Where's this recipe from?</h1>
+          <p class="wizard-sub">Pick one and we'll fill in as much as we can.</p>
+          <div class="source-grid">
+            <template x-for="s in sources" :key="s.key">
+              <button type="button" class="source-card" :class="`source-card--${s.key}`" @click="pickSource(s.key)">
+                <span class="source-emoji" x-text="s.emoji" aria-hidden="true"></span>
+                <span class="source-title" x-text="s.title"></span>
+                <span class="source-hint" x-text="s.hint"></span>
+              </button>
+            </template>
           </div>
-          <div class="import-tile" x-show="source === 'link'">
-            <input class="input" type="url" placeholder="Paste a recipe URL" x-model="importUrlValue">
-            <button class="btn btn-ghost btn-sm" @click="importUrl()" :disabled="importing">Import</button>
+        </section>
+
+        <!-- 2a. A link: Next reads it. -->
+        <section class="wizard-step" x-show="step === 'input' && source === 'link'">
+          <h1 class="wizard-title">Paste the recipe link</h1>
+          <p class="wizard-sub">Copy it from the website or app, then paste it here.</p>
+          <form class="wizard-card" @submit.prevent="nextLink()" novalidate>
+            <div class="link-field" :class="{ 'has-error': stepError }">
+              <span aria-hidden="true">🔗</span>
+              <input x-ref="linkInput" class="link-input" type="url" inputmode="url" autocomplete="off"
+                     autocapitalize="off" spellcheck="false" placeholder="https://…" aria-label="Recipe link"
+                     x-model="importUrlValue" @input="stepError = ''">
+              <button type="button" class="chip-btn" x-show="canPaste && !importUrlValue" @click="pasteLink()">Paste</button>
+              <button type="button" class="chip-btn" x-show="importUrlValue" @click="importUrlValue = ''; $refs.linkInput.focus()" aria-label="Clear">✕</button>
+            </div>
+            <div class="step-error" x-show="stepError" role="alert">
+              <span x-text="stepError"></span>
+              <button type="button" class="link-btn" @click="typeInstead()">Type it in instead</button>
+            </div>
+            <button type="submit" class="btn-next">Next</button>
+          </form>
+        </section>
+
+        <!-- 2b. Screenshots / photos / a PDF: pick, check, Next reads them all as one recipe. -->
+        <section class="wizard-step" x-show="step === 'input' && source !== 'link'">
+          <h1 class="wizard-title" x-text="chosen?.ask"></h1>
+          <p class="wizard-sub" x-show="source === 'screenshot'">Add every screenshot if the recipe runs across more than one.</p>
+          <p class="wizard-sub" x-show="source === 'photo'">Add the front and back of a card — they're read as one recipe and kept with it.</p>
+          <p class="wizard-sub" x-show="source === 'pdf'">Any recipe PDF, even a scanned one.</p>
+          <div class="wizard-card">
+            <label class="drop-zone" :class="{ compact: files.length }"
+                   @dragover.prevent="$el.classList.add('over')" @dragleave="$el.classList.remove('over')"
+                   @drop.prevent="$el.classList.remove('over'); addFiles($event.dataTransfer.files)">
+              <input type="file" class="sr-only" x-ref="filePick"
+                     :accept="source === 'pdf' ? 'application/pdf' : 'image/*'" :multiple="source !== 'pdf'"
+                     @change="addFiles($event.target.files); $event.target.value = ''">
+              <span class="drop-emoji" aria-hidden="true" x-text="source === 'pdf' ? '📄' : '🖼️'"></span>
+              <span class="drop-title" x-text="files.length ? (source === 'pdf' ? 'Choose a different PDF' : 'Add more') : (source === 'pdf' ? 'Choose a PDF' : 'Choose from your photos')"></span>
+            </label>
+            <button type="button" class="btn-soft" x-show="source === 'photo'" @click="$refs.camera.click()">📸 Take a photo</button>
+            <input type="file" accept="image/*" capture="environment" x-ref="camera" hidden
+                   @change="addFiles($event.target.files); $event.target.value = ''">
+
+            <ul class="file-list" x-show="files.length">
+              <template x-for="(f, i) in files" :key="f.preview || f.file.name + i">
+                <li class="file-thumb" :class="{ doc: !f.preview }">
+                  <img x-show="f.preview" :src="f.preview" alt="">
+                  <span x-show="!f.preview" class="file-doc"><span aria-hidden="true">📄</span><span x-text="f.file.name"></span></span>
+                  <button type="button" class="file-remove" @click="removeFile(i)" :aria-label="`Remove ${f.file.name}`">✕</button>
+                </li>
+              </template>
+            </ul>
+
+            <div class="step-error" x-show="stepError" role="alert">
+              <span x-text="stepError"></span>
+              <button type="button" class="link-btn" @click="typeInstead()">Type it in instead</button>
+            </div>
+            <button type="button" class="btn-next" @click="nextFiles()" :disabled="!files.length">Next</button>
           </div>
-          <div class="import-tile" x-show="source === 'screenshot'">
-            <span class="tile-hint">Pick several if the recipe runs across more than one screenshot — they're read as one recipe and kept with it.</span>
-            <input type="file" accept="image/*" multiple x-ref="screenshot" @change="importPhoto($event)" :disabled="importing">
-          </div>
-          <div class="import-tile" x-show="source === 'photo'">
-            <span class="tile-hint">Pick both sides of a card at once and it reads them as one recipe, keeping the photos.</span>
-            <input type="file" accept="image/*" multiple x-ref="photo" @change="importPhoto($event)" :disabled="importing">
-            <button class="btn btn-ghost btn-sm" @click="$refs.photoCamera.click()" :disabled="importing">📸 Take a photo</button>
-            <input type="file" accept="image/*" capture="environment" x-ref="photoCamera" @change="importPhoto($event)" hidden>
-          </div>
-          <div class="import-tile" x-show="source === 'pdf'">
-            <input type="file" accept="application/pdf" x-ref="pdf" @change="importPdf($event)" :disabled="importing">
-          </div>
-        </div>
+        </section>
+
+        <!-- 3. Reading. -->
+        <section class="wizard-step reading" x-show="step === 'reading'" aria-live="polite">
+          <div class="reading-bowl" aria-hidden="true"><span>🥣</span></div>
+          <h1 class="wizard-title" x-text="readingLine"></h1>
+          <p class="wizard-sub">This usually takes a few seconds.</p>
+        </section>
+      </div>
+
+      <div x-show="showForm" x-cloak>
+      <div class="form-head">
+        <h1 x-text="id ? 'Edit recipe' : 'New recipe'"></h1>
+        <button type="button" class="btn-soft btn-soft--sm" x-show="!id" @click="startOver()">↺ Start over</button>
+      </div>
+
+      <div class="found-banner" x-show="found && !id">
+        <span aria-hidden="true">✨</span>
+        <div><strong>Here's what we found.</strong> Check it over and fix anything that's off, then save.</div>
       </div>
 
       <!-- Editing: refill from a link -->
-      <div class="form-section" x-show="id">
-        <h2 class="recipe-section-title">Fill from a link</h2>
-        <div class="import-tile">
+      <div class="form-card" x-show="id">
+        <h2 class="card-title"><span aria-hidden="true">🔗</span> Fill from a link</h2>
+        <div class="refill-row">
           <input class="input" type="url" placeholder="Paste a recipe URL" x-model="importUrlValue">
-          <button class="btn btn-ghost btn-sm" @click="importUrl()" :disabled="importing">Import</button>
+          <button class="btn-soft" @click="importUrl()" :disabled="importing">Import</button>
         </div>
       </div>
 
@@ -103,9 +153,9 @@
       <div class="import-warning" x-show="importWarning" x-text="importWarning"></div>
       <div x-show="error" class="auth-notice auth-notice--error" x-text="error"></div>
 
-      <div x-show="id || started" x-cloak>
       <!-- Basics -->
-      <div class="form-section">
+      <div class="form-card">
+        <h2 class="card-title"><span aria-hidden="true">📝</span> The basics</h2>
         <div class="form-group">
           <label class="form-label">Title</label>
           <input class="input" type="text" x-model="form.title" placeholder="e.g. Grandma's Banana Bread">
@@ -114,7 +164,7 @@
           <label class="form-label">Description</label>
           <textarea class="input" rows="2" x-model="form.description"></textarea>
         </div>
-        <div class="field-grid">
+        <div class="field-grid field-grid--keep">
           <div class="form-group"><label class="form-label">Prep (min)</label><input class="input" type="number" min="0" x-model.number="form.prep_time_minutes"></div>
           <div class="form-group"><label class="form-label">Cook (min)</label><input class="input" type="number" min="0" x-model.number="form.cook_time_minutes"></div>
           <div class="form-group"><label class="form-label">Servings</label><input class="input" type="text" x-model="form.servings" placeholder="e.g. 4"></div>
@@ -130,58 +180,63 @@
       </div>
 
       <!-- Photos of the card/dish -->
-      <div class="form-section">
-        <h2 class="recipe-section-title">Recipe photos</h2>
+      <div class="form-card">
+        <h2 class="card-title"><span aria-hidden="true">📷</span> Photos</h2>
         <div class="image-preview">
           <template x-for="(url, i) in form.image_urls" :key="url">
             <figure class="image-thumb">
               <img :src="url" alt="Recipe photo">
-              <button class="btn btn-ghost btn-icon" @click="form.image_urls.splice(i, 1)" title="Remove photo">✕</button>
+              <button class="file-remove" @click="form.image_urls.splice(i, 1)" title="Remove photo">✕</button>
             </figure>
           </template>
-          <div>
-            <input type="file" accept="image/*" multiple x-ref="attach" @change="attachPhoto($event)" :disabled="importing">
-            <div><button class="btn btn-ghost btn-sm" @click="$refs.attachCamera.click()" :disabled="importing" style="margin-top:8px;">📸 Take a photo</button></div>
-            <input type="file" accept="image/*" capture="environment" x-ref="attachCamera" @change="attachPhoto($event)" hidden>
-          </div>
+          <label class="add-photo" :class="{ disabled: importing }">
+            <input type="file" class="sr-only" accept="image/*" multiple x-ref="attach" @change="attachPhoto($event)" :disabled="importing">
+            <span aria-hidden="true">＋</span>
+            <span>Add photos</span>
+          </label>
+          <button type="button" class="add-photo" @click="$refs.attachCamera.click()" :disabled="importing">
+            <span aria-hidden="true">📸</span>
+            <span>Take a photo</span>
+          </button>
+          <input type="file" accept="image/*" capture="environment" x-ref="attachCamera" @change="attachPhoto($event)" hidden>
         </div>
       </div>
 
       <!-- Ingredients -->
-      <div class="form-section">
-        <h2 class="recipe-section-title">Ingredients</h2>
+      <div class="form-card">
+        <h2 class="card-title"><span aria-hidden="true">🥕</span> Ingredients</h2>
         <div x-ref="ingredientList">
           <template x-for="(ing, i) in form.ingredients" :key="i">
             <div class="line-row">
               <span class="drag-handle" title="Drag to reorder">⠿</span>
               <input class="input" type="text" x-model="form.ingredients[i]" placeholder="1 cup flour">
-              <button class="btn btn-ghost btn-icon" @click="form.ingredients.splice(i, 1)" title="Remove">✕</button>
+              <button class="row-remove" @click="form.ingredients.splice(i, 1)" title="Remove">✕</button>
             </div>
           </template>
         </div>
-        <button class="btn btn-ghost btn-sm" @click="form.ingredients.push('')">+ Add ingredient</button>
+        <button class="btn-add" @click="form.ingredients.push('')">＋ Add ingredient</button>
       </div>
 
       <!-- Instructions -->
-      <div class="form-section">
-        <h2 class="recipe-section-title">Instructions</h2>
+      <div class="form-card">
+        <h2 class="card-title"><span aria-hidden="true">👩‍🍳</span> Instructions</h2>
         <div x-ref="instructionList">
           <template x-for="(step, i) in form.instructions" :key="i">
             <div class="line-row">
               <span class="drag-handle" title="Drag to reorder">⠿</span>
-              <span class="text-muted" style="padding-top:.5rem; min-width:1.5rem;" x-text="(i + 1) + '.'"></span>
+              <span class="step-num" x-text="i + 1"></span>
               <textarea class="input" rows="2" x-model="form.instructions[i]"></textarea>
-              <button class="btn btn-ghost btn-icon" @click="form.instructions.splice(i, 1)" title="Remove">✕</button>
+              <button class="row-remove" @click="form.instructions.splice(i, 1)" title="Remove">✕</button>
             </div>
           </template>
         </div>
-        <button class="btn btn-ghost btn-sm" @click="form.instructions.push('')">+ Add step</button>
+        <button class="btn-add" @click="form.instructions.push('')">＋ Add step</button>
       </div>
 
       <!-- Nutrition, per serving. Filled by hand or estimated from the
            ingredients above; either way it is reviewed here before it is saved. -->
-      <div class="form-section">
-        <h2 class="recipe-section-title">Nutrition <span class="text-muted" style="font-weight:500; font-size:var(--text-sm);">per serving</span></h2>
+      <div class="form-card">
+        <h2 class="card-title"><span aria-hidden="true">🥗</span> Nutrition <span class="card-title-note">per serving</span></h2>
         <div class="field-grid">
           <div class="form-group">
             <label class="form-label">Servings this makes</label>
@@ -197,10 +252,10 @@
         </div>
 
         <div class="header-actions" style="justify-content:flex-start; margin-top:var(--space-3); flex-wrap:wrap;">
-          <button class="btn btn-ghost btn-sm" @click="estimateNutrition()" :disabled="estimating || importing">
+          <button class="btn-soft btn-soft--sm" @click="estimateNutrition()" :disabled="estimating || importing">
             <span x-text="estimating ? 'Estimating…' : '✨ Estimate from ingredients'"></span>
           </button>
-          <button class="btn btn-ghost btn-sm" @click="clearNutrition()" x-show="form.calories != null || form.protein_g != null">Clear</button>
+          <button class="btn-soft btn-soft--sm" @click="clearNutrition()" x-show="form.calories != null || form.protein_g != null">Clear</button>
           <span class="text-muted" style="font-size:var(--text-xs);" x-text="nutritionSourceLabel"></span>
         </div>
         <div class="busy-note" x-show="estimating"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Working out each ingredient…</div>
@@ -240,16 +295,16 @@
         </details>
       </div>
 
-      <div class="form-section">
-        <div class="form-group">
+      <div class="form-card">
+        <div class="form-group" style="margin-bottom:0;">
           <label class="form-label">Source URL (optional)</label>
-          <input class="input" type="url" x-model="form.source_url">
+          <input class="input" type="url" x-model="form.source_url" placeholder="https://…">
         </div>
       </div>
 
-      <div class="header-actions" style="justify-content:flex-end;">
-        <a class="btn btn-ghost" href="/">Cancel</a>
-        <button class="btn btn-primary" @click="save()" :disabled="saving || importing">
+      <div class="save-bar">
+        <a class="btn-soft" href="/">Cancel</a>
+        <button class="btn-next btn-save" @click="save()" :disabled="saving || importing">
           <span x-text="saving ? 'Saving…' : 'Save recipe'"></span>
         </button>
       </div>
