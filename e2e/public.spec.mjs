@@ -69,6 +69,20 @@ test('tap-to-check strikes an ingredient through', async ({ page }) => {
   await expect(first).toHaveClass(/checked/);
 });
 
+test('share hands the share sheet only the title and the page url', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__shared = [];
+    navigator.share = async (data) => { window.__shared.push(data); };
+  });
+  await page.goto('/');
+  await page.locator('.recipe-row').first().click();
+  await expect(page.locator('.recipe-detail h1')).toHaveText(/\S/);
+  const title = (await page.locator('.recipe-detail h1').textContent()).trim();
+  await page.getByRole('button', { name: /Share/ }).click();
+  const shared = await page.evaluate(() => window.__shared);
+  expect(shared).toEqual([{ title, url: page.url() }]);
+});
+
 test('signed out: no Mine/Others filter, every recipe listed', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.recipe-row').first()).toBeVisible();

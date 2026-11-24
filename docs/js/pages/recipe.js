@@ -190,7 +190,9 @@ window.recipePage = function recipePage() {
 
     async share() {
       const url = window.location.href, title = this.recipe?.title || 'Recipe';
-      if (navigator.share) { try { await navigator.share({ title, text: `${title} — Mom's Kitchen`, url }); } catch (_) {} return; }
+      // No `text`: the share sheet's Copy action joins text and url into one
+      // clipboard string, which pastes as a broken link.
+      if (navigator.share) { try { await navigator.share({ title, url }); } catch (_) {} return; }
       try { await navigator.clipboard.writeText(url); Alpine.store('ui').showToast('Link copied!'); }
       catch (_) { Alpine.store('ui').showToast('Copy this link: ' + url); }
     },

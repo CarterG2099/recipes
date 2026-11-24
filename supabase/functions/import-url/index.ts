@@ -5,6 +5,7 @@
 // Restricted to allowlisted editors: we call is_editor() with the caller's JWT
 // so this can't be abused as an open URL-fetch proxy.
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { decodeEntities } from "./entities.js";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -34,11 +35,11 @@ function isoToMinutes(d: unknown): number | null {
 }
 
 function instructionText(step: unknown): string {
-  if (typeof step === "string") return step.trim();
+  if (typeof step === "string") return decodeEntities(step);
   if (step && typeof step === "object") {
     const o = step as Record<string, unknown>;
-    if (typeof o.text === "string") return o.text.trim();
-    if (typeof o.name === "string") return o.name.trim();
+    if (typeof o.text === "string") return decodeEntities(o.text);
+    if (typeof o.name === "string") return decodeEntities(o.name);
   }
   return "";
 }
@@ -117,15 +118,15 @@ Deno.serve(async (req) => {
   };
 
   if (recipe) {
-    draft.title = String(recipe.name ?? "").trim();
+    draft.title = decodeEntities(String(recipe.name ?? ""));
     draft.ingredients = asArray(recipe.recipeIngredient)
-      .map((s) => String(s).trim())
+      .map((s) => decodeEntities(String(s)))
       .filter(Boolean);
 
     const steps: string[] = [];
     const ri = recipe.recipeInstructions;
     if (typeof ri === "string") {
-      steps.push(...ri.split("\n").map((s) => s.trim()).filter(Boolean));
+      steps.push(...ri.split("\n").map((s) => decodeEntities(s)).filter(Boolean));
     } else {
       for (const item of asArray(ri)) {
         const t = item && typeof item === "object"
