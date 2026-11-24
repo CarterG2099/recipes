@@ -44,7 +44,7 @@ function fakeJwt() {
 }
 
 /** Serve docs/, fake Supabase, and record what the page sent. */
-async function setUp(page, { draft = DRAFT, urlError = null } = {}) {
+async function setUp(page, { draft = DRAFT, urlError = null, photoError = null } = {}) {
   const calls = { imports: [], photoReads: [], uploads: [], inserts: [], updates: [] };
   const user = { id: 'u1', email: EMAIL, aud: 'authenticated', role: 'authenticated' };
   const session = {
@@ -89,6 +89,7 @@ async function setUp(page, { draft = DRAFT, urlError = null } = {}) {
     }
     if (pathname === '/functions/v1/import-photo') {
       calls.photoReads.push(req.postDataJSON());
+      if (photoError) return json(route, { error: photoError }, 502);
       return json(route, draft);
     }
     if (pathname.startsWith('/storage/v1/object/recipe-images/')) {
@@ -111,15 +112,22 @@ const sourceUrl = (page) => page.locator('.form-group', { hasText: 'Source URL' 
 const titleInput = (page) => page.getByPlaceholder("e.g. Grandma's Banana Bread");
 const ingredientInputs = (page) => page.getByPlaceholder('1 cup flour');
 const saveButton = (page) => page.getByRole('button', { name: 'Save recipe' });
-// The link box is in the page twice (new-recipe choice and edit refill); only one shows.
-const linkInput = (page) => page.getByPlaceholder('Paste a recipe URL').filter({ visible: true });
-const importButton = (page) => page.getByRole('button', { name: 'Import', exact: true }).filter({ visible: true });
+const linkInput = (page) => page.getByLabel('Recipe link');
+const nextButton = (page) => page.getByRole('button', { name: 'Next', exact: true }).filter({ visible: true });
+const stepError = (page) => page.locator('.step-error').filter({ visible: true });
+const filePick = (page) => page.locator('input[x-ref="filePick"]');
+const thumbs = (page) => page.locator('.file-thumb');
 const choice = (page, name) => page.getByRole('button', { name: new RegExp(name) });
+const PDF = { name: 'recipe.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF\n') };
+
+async function choose(page, name) {
+  await page.goto(`${ORIGIN}/edit.html`);
+  await choice(page, name).click();
+}
 
 /** Open a new recipe and pick "Type it in", which shows the blank form. */
 async function startTyping(page) {
-  await page.goto(`${ORIGIN}/edit.html`);
-  await choice(page, 'Type it in').click();
+  await choose(page, 'Type it in');
   await expect(titleInput(page)).toBeVisible();
 }
 
@@ -137,69 +145,182 @@ test('new recipe: asks where it is from before showing the form', async ({ page 
 test('new recipe: "Type it in" shows the blank form straight away', async ({ page }) => {
   await setUp(page);
   await startTyping(page);
-  await expect(page.getByText('✍️ Typing it in')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'New recipe' })).toBeVisible();
   await expect(saveButton(page)).toBeVisible();
   await expect(choice(page, 'A screenshot')).toBeHidden();
+  await expect(page.locator('.found-banner')).toBeHidden();
 });
 
-test('new recipe: link choice imports, then shows the filled form', async ({ page }) => {
+test('new recipe: link, then Next reads it and shows the filled form — no Import button', async ({ page }) => {
   const calls = await setUp(page);
-  await page.goto(`${ORIGIN}/edit.html`);
-  await choice(page, 'A link').click();
+  await choose(page, 'A link');
+  await expect(page.getByRole('heading', { name: 'Paste the recipe link' })).toBeVisible();
+  await expect(linkInput(page)).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Import', exact: true }).filter({ visible: true })).toHaveCount(0);
   await expect(titleInput(page)).toBeHidden();
 
   await linkInput(page).fill(LINK);
-  await importButton(page).click();
-  await expect(ingredientInputs(page).first()).toBeVisible();
+  await nextButton(page).click();
+  await expect(page.locator('.found-banner')).toContainText("Here's what we found");
   await expect(ingredientInputs(page).first()).toHaveValue('3 large egg whites');
   await expect(titleInput(page)).toHaveValue(DRAFT.title);
   await expect(sourceUrl(page)).toHaveValue(LINK);
   expect(calls.imports).toEqual([{ url: LINK }]);
 });
 
-test('new recipe: a failed link import keeps the form hidden and says why', async ({ page }) => {
-  await setUp(page, { urlError: 'Could not fetch that URL' });
-  await page.goto(`${ORIGIN}/edit.html`);
-  await choice(page, 'A link').click();
+test('new recipe: Enter in the link box works like Next', async ({ page }) => {
+  const calls = await setUp(page);
+  await choose(page, 'A link');
   await linkInput(page).fill(LINK);
-  await importButton(page).click();
-  await expect(page.locator('.auth-notice--error')).toContainText('Import failed');
+  await linkInput(page).press('Enter');
+  await expect(ingredientInputs(page).first()).toHaveValue('3 large egg whites');
+  expect(calls.imports).toEqual([{ url: LINK }]);
+});
+
+test('new recipe: share-sheet text or a bare address still finds the link', async ({ page }) => {
+  const calls = await setUp(page);
+  await choose(page, 'A link');
+  await linkInput(page).fill(`Meringue Cookies — Sugar Spun Run\n${LINK}`);
+  await nextButton(page).click();
+  await expect(ingredientInputs(page).first()).toBeVisible();
+
+  await page.getByRole('button', { name: /Start over/ }).click();
+  await choice(page, 'A link').click();
+  await linkInput(page).fill('sugarspunrun.com/meringue-cookie-recipe/');
+  await nextButton(page).click();
+  await expect(ingredientInputs(page).first()).toBeVisible();
+  expect(calls.imports).toEqual([{ url: LINK }, { url: LINK }]);
+});
+
+test('new recipe: Next with no link, or not a link, says so and reads nothing', async ({ page }) => {
+  const calls = await setUp(page);
+  await choose(page, 'A link');
+  await nextButton(page).click();
+  await expect(stepError(page)).toContainText('Paste the link');
+  await linkInput(page).fill('chocolate chip cookies');
+  await expect(stepError(page)).toBeHidden();
+  await nextButton(page).click();
+  await expect(stepError(page)).toContainText("doesn't look like a web link");
+  expect(calls.imports).toEqual([]);
   await expect(titleInput(page)).toBeHidden();
 });
 
-test('new recipe: screenshot choice reads it with Gemini, keeps it, and shows the form', async ({ page }) => {
-  const calls = await setUp(page);
-  await page.goto(`${ORIGIN}/edit.html`);
-  await choice(page, 'A screenshot').click();
-  await expect(page.getByText('📱 From a screenshot')).toBeVisible();
-  // Screenshots come from the library, not the camera.
-  await expect(page.locator('.import-tile').getByRole('button', { name: /Take a photo/ })).toBeHidden();
+test('new recipe: a page that cannot be opened stays on the link step and explains', async ({ page }) => {
+  await setUp(page, { urlError: 'Could not fetch that URL' });
+  await choose(page, 'A link');
+  await linkInput(page).fill(LINK);
+  await nextButton(page).click();
+  await expect(stepError(page)).toContainText("couldn't open that page");
+  await expect(linkInput(page)).toHaveValue(LINK);
+  await expect(titleInput(page)).toBeHidden();
+});
 
-  await page.locator('input[x-ref="screenshot"]').setInputFiles(SAMPLE_IMAGE);
-  await expect(ingredientInputs(page).first()).toBeVisible();
+test('new recipe: a page with no recipe on it says so, and "Type it in instead" keeps the link', async ({ page }) => {
+  await setUp(page, { draft: EMPTY_DRAFT });
+  await choose(page, 'A link');
+  await linkInput(page).fill(LINK);
+  await nextButton(page).click();
+  await expect(stepError(page)).toContainText("couldn't find a recipe");
+  await expect(titleInput(page)).toBeHidden();
+
+  await stepError(page).getByRole('button', { name: 'Type it in instead' }).click();
+  await expect(titleInput(page)).toBeVisible();
+  await expect(sourceUrl(page)).toHaveValue(LINK);
+  await expect(page.locator('.found-banner')).toBeHidden();
+});
+
+test('new recipe: screenshots show first, then Next reads them all as one and keeps them', async ({ page }) => {
+  const calls = await setUp(page);
+  await choose(page, 'A screenshot');
+  await expect(page.getByRole('heading', { name: 'Add your screenshots' })).toBeVisible();
+  // Screenshots come from the library, not the camera.
+  await expect(page.getByRole('button', { name: /Take a photo/ }).filter({ visible: true })).toHaveCount(0);
+  await expect(nextButton(page)).toBeDisabled();
+
+  await filePick(page).setInputFiles(SAMPLE_IMAGE);
+  await filePick(page).setInputFiles(SAMPLE_IMAGE);
+  await expect(thumbs(page)).toHaveCount(2);
+  // The previews really draw (the page's CSP has to allow blob: images).
+  await expect.poll(() => thumbs(page).first().locator('img').evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
+  expect(calls.photoReads).toEqual([]);
+
+  await nextButton(page).click();
   await expect(ingredientInputs(page).first()).toHaveValue('3 large egg whites');
   expect(calls.photoReads).toHaveLength(1);
+  expect(calls.photoReads[0].images).toHaveLength(2);
+  expect(calls.uploads).toHaveLength(2);
+  await expect(page.locator('.image-thumb')).toHaveCount(2);
+});
+
+test('new recipe: a picked picture can be removed before reading', async ({ page }) => {
+  const calls = await setUp(page);
+  await choose(page, 'A photo');
+  await filePick(page).setInputFiles([SAMPLE_IMAGE, SAMPLE_IMAGE]);
+  await expect(thumbs(page)).toHaveCount(2);
+  await thumbs(page).first().getByRole('button', { name: /Remove/ }).click();
+  await expect(thumbs(page)).toHaveCount(1);
+  await nextButton(page).click();
+  await expect(ingredientInputs(page).first()).toBeVisible();
   expect(calls.photoReads[0].images).toHaveLength(1);
-  expect(calls.uploads).toHaveLength(1);
-  await expect(page.locator('.image-thumb')).toHaveCount(1);
 });
 
 test('new recipe: photo choice offers the camera too', async ({ page }) => {
   await setUp(page);
-  await page.goto(`${ORIGIN}/edit.html`);
-  await choice(page, 'A photo').click();
-  await expect(page.locator('.import-tile').getByRole('button', { name: /Take a photo/ })).toBeVisible();
-  await expect(page.locator('input[x-ref="photo"]')).toBeVisible();
+  await choose(page, 'A photo');
+  await expect(page.getByRole('button', { name: /Take a photo/ }).filter({ visible: true })).toHaveCount(1);
+  await expect(page.getByText('Choose from your photos')).toBeVisible();
 });
 
-test('new recipe: Change goes back to the choices', async ({ page }) => {
+test('new recipe: a PDF is read without being stored as a photo', async ({ page }) => {
+  const calls = await setUp(page);
+  await choose(page, 'A PDF');
+  await filePick(page).setInputFiles(PDF);
+  await expect(page.locator('.file-doc')).toContainText('recipe.pdf');
+  await nextButton(page).click();
+  await expect(ingredientInputs(page).first()).toBeVisible();
+  expect(calls.photoReads[0].images).toEqual([{ imageBase64: PDF.buffer.toString('base64'), mimeType: 'application/pdf' }]);
+  expect(calls.uploads).toEqual([]);
+  await expect(page.locator('.image-thumb')).toHaveCount(0);
+});
+
+test('new recipe: the wrong kind of file is turned away', async ({ page }) => {
   await setUp(page);
-  await page.goto(`${ORIGIN}/edit.html`);
-  await choice(page, 'A PDF').click();
-  await expect(page.locator('input[x-ref="pdf"]')).toBeVisible();
-  await page.getByRole('button', { name: 'Change' }).click();
+  await choose(page, 'A PDF');
+  await filePick(page).setInputFiles(SAMPLE_IMAGE);
+  await expect(stepError(page)).toContainText('Please pick a PDF');
+  await expect(thumbs(page)).toHaveCount(0);
+});
+
+test('new recipe: a failed read goes back with the pictures still there', async ({ page }) => {
+  await setUp(page, { photoError: 'The reader is busy right now — please try again in a moment.' });
+  await choose(page, 'A screenshot');
+  await filePick(page).setInputFiles(SAMPLE_IMAGE);
+  await nextButton(page).click();
+  await expect(stepError(page)).toContainText('busy');
+  await expect(thumbs(page)).toHaveCount(1);
+  await expect(titleInput(page)).toBeHidden();
+});
+
+test('new recipe: Back goes to the choices', async ({ page }) => {
+  await setUp(page);
+  await choose(page, 'A PDF');
+  await expect(filePick(page)).toBeAttached();
+  await page.getByRole('button', { name: 'Back' }).click();
   await expect(choice(page, 'A link')).toBeVisible();
-  await expect(page.locator('input[x-ref="pdf"]')).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Add the PDF' })).toBeHidden();
+});
+
+test('new recipe: Start over clears the form and goes back to the choices', async ({ page }) => {
+  await setUp(page);
+  await choose(page, 'A link');
+  await linkInput(page).fill(LINK);
+  await nextButton(page).click();
+  await expect(titleInput(page)).toHaveValue(DRAFT.title);
+  await page.getByRole('button', { name: /Start over/ }).click();
+  await expect(choice(page, 'A link')).toBeVisible();
+  await choice(page, 'Type it in').click();
+  await expect(titleInput(page)).toHaveValue('');
+  await expect(ingredientInputs(page).first()).toHaveValue('');
 });
 
 test('new recipe: saving with only a Source URL imports it for review first', async ({ page }) => {
@@ -257,14 +378,15 @@ test('editing: the link import shows, pre-filled from Source URL, and fills the 
   await page.goto(`${ORIGIN}/edit.html?id=31`);
 
   await expect(page.getByRole('heading', { name: 'Fill from a link' })).toBeVisible();
-  const linkBox = linkInput(page);
+  const linkBox = page.getByPlaceholder('Paste a recipe URL');
   await expect(linkBox).toBeVisible();
   await expect(linkBox).toHaveValue(LINK);
-  // No source picker when editing — straight to the form.
+  // No source picker or steps when editing — straight to the form.
   await expect(page.getByRole('heading', { name: "Where's this recipe from?" })).toBeHidden();
+  await expect(page.getByRole('button', { name: /Start over/ })).toBeHidden();
   await expect(titleInput(page)).toHaveValue('Meringue Cookies');
 
-  await importButton(page).click();
+  await page.getByRole('button', { name: 'Import', exact: true }).click();
   await expect(ingredientInputs(page).first()).toHaveValue('3 large egg whites');
   expect(calls.imports).toEqual([{ url: LINK }]);
   expect(calls.updates).toEqual([]);
