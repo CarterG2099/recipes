@@ -37,34 +37,73 @@
     <div class="edit-form">
       <h1 x-text="id ? 'Edit recipe' : 'New recipe'" style="margin-bottom:var(--space-6);"></h1>
 
-      <!-- Import options (new recipes) -->
+      <!-- New recipe: pick where it's coming from first; the form appears once
+           that source has been read (or "Type it in" is picked). -->
       <div class="form-section" x-show="!id">
-        <h2 class="recipe-section-title">Start from…</h2>
-        <div class="import-options">
-          <div class="import-tile">
+        <h2 class="recipe-section-title">Where's this recipe from?</h2>
+
+        <div class="import-options" x-show="!source">
+          <button type="button" class="import-tile source-choice" @click="pickSource('link')">
             <span class="tile-title">🔗 A link</span>
+            <span class="tile-hint">A recipe website.</span>
+          </button>
+          <button type="button" class="import-tile source-choice" @click="pickSource('screenshot')">
+            <span class="tile-title">📱 A screenshot</span>
+            <span class="tile-hint">A TikTok, Instagram or Facebook post.</span>
+          </button>
+          <button type="button" class="import-tile source-choice" @click="pickSource('photo')">
+            <span class="tile-title">📷 A photo</span>
+            <span class="tile-hint">A handwritten card or printout.</span>
+          </button>
+          <button type="button" class="import-tile source-choice" @click="pickSource('pdf')">
+            <span class="tile-title">📄 A PDF</span>
+            <span class="tile-hint">Any recipe PDF — even a scanned one.</span>
+          </button>
+          <button type="button" class="import-tile source-choice" @click="pickSource('manual')">
+            <span class="tile-title">✍️ Type it in</span>
+            <span class="tile-hint">Start with a blank recipe.</span>
+          </button>
+        </div>
+
+        <div x-show="source" x-cloak>
+          <div class="source-picked">
+            <span x-text="sourceLabel"></span>
+            <button type="button" class="btn btn-ghost btn-sm" @click="source = null" :disabled="importing">Change</button>
+          </div>
+          <div class="import-tile" x-show="source === 'link'">
             <input class="input" type="url" placeholder="Paste a recipe URL" x-model="importUrlValue">
             <button class="btn btn-ghost btn-sm" @click="importUrl()" :disabled="importing">Import</button>
           </div>
-          <div class="import-tile">
-            <span class="tile-title">📄 A PDF</span>
-            <span class="tile-hint">Any recipe PDF — even a scanned one.</span>
-            <input type="file" accept="application/pdf" x-ref="pdf" @change="importPdf($event)" :disabled="importing">
+          <div class="import-tile" x-show="source === 'screenshot'">
+            <span class="tile-hint">Pick several if the recipe runs across more than one screenshot — they're read as one recipe and kept with it.</span>
+            <input type="file" accept="image/*" multiple x-ref="screenshot" @change="importPhoto($event)" :disabled="importing">
           </div>
-          <div class="import-tile">
-            <span class="tile-title">📷 A photo</span>
-            <span class="tile-hint">A handwritten card or printout — pick both sides at once and it reads them as one recipe, keeping the photos.</span>
+          <div class="import-tile" x-show="source === 'photo'">
+            <span class="tile-hint">Pick both sides of a card at once and it reads them as one recipe, keeping the photos.</span>
             <input type="file" accept="image/*" multiple x-ref="photo" @change="importPhoto($event)" :disabled="importing">
             <button class="btn btn-ghost btn-sm" @click="$refs.photoCamera.click()" :disabled="importing">📸 Take a photo</button>
             <input type="file" accept="image/*" capture="environment" x-ref="photoCamera" @change="importPhoto($event)" hidden>
           </div>
+          <div class="import-tile" x-show="source === 'pdf'">
+            <input type="file" accept="application/pdf" x-ref="pdf" @change="importPdf($event)" :disabled="importing">
+          </div>
         </div>
-        <div class="busy-note" x-show="importing"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Reading…</div>
-        <div class="import-warning" x-show="importWarning" x-text="importWarning"></div>
       </div>
 
+      <!-- Editing: refill from a link -->
+      <div class="form-section" x-show="id">
+        <h2 class="recipe-section-title">Fill from a link</h2>
+        <div class="import-tile">
+          <input class="input" type="url" placeholder="Paste a recipe URL" x-model="importUrlValue">
+          <button class="btn btn-ghost btn-sm" @click="importUrl()" :disabled="importing">Import</button>
+        </div>
+      </div>
+
+      <div class="busy-note" x-show="importing"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Reading…</div>
+      <div class="import-warning" x-show="importWarning" x-text="importWarning"></div>
       <div x-show="error" class="auth-notice auth-notice--error" x-text="error"></div>
 
+      <div x-show="id || started" x-cloak>
       <!-- Basics -->
       <div class="form-section">
         <div class="form-group">
@@ -213,6 +252,7 @@
         <button class="btn btn-primary" @click="save()" :disabled="saving || importing">
           <span x-text="saving ? 'Saving…' : 'Save recipe'"></span>
         </button>
+      </div>
       </div>
     </div>
   </main>

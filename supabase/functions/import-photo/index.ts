@@ -26,7 +26,16 @@ function json(body: unknown, status = 200): Response {
 
 const PROMPT =
   "You are reading a photo or PDF of a recipe — sometimes a handwritten card, " +
-  "sometimes a printout or web export. Transcribe it faithfully. Expand only " +
+  "sometimes a printout or web export, and sometimes a phone screenshot of a " +
+  "social media post (a TikTok, Instagram, Facebook or YouTube caption or " +
+  "comment). In a screenshot, read only the recipe: ignore the app's buttons " +
+  "and labels, usernames, follower/like/comment/share counts, timestamps, " +
+  "hashtags, @mentions, 'link in bio', 'see more', ads, and emoji used as " +
+  "decoration (but keep an emoji's meaning if it stands for a word, e.g. 🥚 " +
+  "-> egg). Captions often run ingredients and steps together in one " +
+  "paragraph or use emoji as bullets; split them into separate ingredient " +
+  "lines and separate steps. If there is no recipe title, use the dish's " +
+  "name as the caption states it, not the account name. Transcribe it faithfully. Expand only " +
   "obvious abbreviations (PB -> peanut butter, tsp, tbsp). Do not invent steps, " +
   "times, or servings. You may be given several photos of the SAME recipe (the " +
   "front and back of a card, or multiple pages) — combine them, in the order " +
