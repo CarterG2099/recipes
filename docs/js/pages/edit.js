@@ -10,10 +10,19 @@
 import { supabase } from '../supabase.js';
 import { MACROS, servingsCountFrom, hasNutrition, nutritionChanged } from '../nutrition.js';
 import { canEditRecipe } from '../access.js';
+import { shouldImportOnSave } from '../importing.js';
 
 const BUCKET = 'recipe-images';
 const MAX_EDGE = 1600;   // px — plenty for reading a card; keeps uploads small on mobile
 const JPEG_QUALITY = 0.85;
+
+const SOURCE_LABELS = {
+  link: '🔗 From a link',
+  screenshot: '📱 From a screenshot',
+  photo: '📷 From a photo',
+  pdf: '📄 From a PDF',
+  manual: '✍️ Typing it in',
+};
 
 function emptyForm() {
   return {
@@ -102,6 +111,11 @@ window.editPage = function editPage() {
     importWarning: '',
     saving: false,
     error: null,
+    _autoImportedUrl: null,
+    // New recipes only: which "Where's this recipe from?" choice was picked,
+    // and whether the form has been revealed (after a read, or "Type it in").
+    source: null,
+    started: false,
 
     // Nutrition. `breakdown` is the estimator's per-ingredient table, shown so a
     // wrong total can be traced to the line that caused it. `_nutritionBefore`
@@ -163,6 +177,7 @@ window.editPage = function editPage() {
         nutrition_source: data.nutrition_source ?? null,
       };
       this._nutritionBefore = nutritionOf(this.form);
+      this.importUrlValue = this.form.source_url;
     },
 
     /** "estimated" / "entered by hand" / nothing, for the label beside the fields. */
@@ -278,7 +293,18 @@ window.editPage = function editPage() {
       });
     },
 
+    get sourceLabel() {
+      return SOURCE_LABELS[this.source] || '';
+    },
+
+    pickSource(source) {
+      this.source = source;
+      this.error = null;
+      if (source === 'manual') this.started = true;
+    },
+
     _applyDraft(draft) {
+      this.started = true;
       this.importWarning = draft.warning || '';
       if (draft.title) this.form.title = draft.title;
       if (draft.description) this.form.description = draft.description;
@@ -294,6 +320,10 @@ window.editPage = function editPage() {
     async importUrl() {
       const url = this.importUrlValue.trim();
       if (!url) return;
+      await this._importFromUrl(url);
+    },
+
+    async _importFromUrl(url) {
       this.importing = true; this.importWarning = ''; this.error = null;
       try {
         const { data, error } = await supabase.functions.invoke('import-url', { body: { url } });
@@ -413,6 +443,14 @@ window.editPage = function editPage() {
 
     async save() {
       const payload = this._payload();
+      // Fill from the link and stop, so the person reviews before it's saved.
+      // A title they typed wins over the page's.
+      if (shouldImportOnSave(payload, this._autoImportedUrl)) {
+        this._autoImportedUrl = payload.source_url;
+        await this._importFromUrl(payload.source_url);
+        if (payload.title) this.form.title = payload.title;
+        return;
+      }
       if (!payload.title) { this.error = 'Title is required.'; return; }
       this.saving = true; this.error = null;
       try {

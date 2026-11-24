@@ -193,6 +193,9 @@ body { background: var(--color-bg); }
 }
 .import-tile .tile-title { font-family: var(--font-display); font-weight: 700; font-size: var(--text-sm); display: flex; align-items: center; gap: 6px; }
 .import-tile .tile-hint { font-size: var(--text-xs); color: var(--color-text-muted); line-height: 1.4; }
+.source-choice { font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.source-choice:hover, .source-choice:focus-visible { border-color: var(--color-primary); border-style: solid; }
+.source-picked { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-2); font-weight: 600; }
 .import-warning { background: #fff3cd; border: 1px solid #ffe08a; color: #6b5300; border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); font-size: var(--text-sm); margin-top: var(--space-3); }
 .line-row { display: flex; gap: var(--space-2); margin-bottom: var(--space-2); align-items: flex-start; }
 .line-row textarea, .line-row .input { flex: 1; }
