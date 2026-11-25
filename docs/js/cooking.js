@@ -183,13 +183,14 @@ export function collectTags(list) {
   return [...seen].sort((a, b) => a.localeCompare(b));
 }
 
-export function filterRecipes(all, { search = '', activeTags = [], favoritesOnly = false, sort = 'oldest', owner = 'all', mine = [] } = {}) {
+export function filterRecipes(all, { search = '', activeTags = [], favoritesOnly = false, reviewOnly = false, sort = 'oldest', owner = 'all', mine = [] } = {}) {
   // Multi-term AND search: every whitespace-separated term must appear somewhere
   // (title, description, ingredients, or tags), in any order. "flour sugar" finds
   // recipes containing both.
   const terms = String(search).toLowerCase().split(/\s+/).filter(Boolean);
   let list = filterByOwner(all, owner, mine).filter((r) => {
     if (favoritesOnly && !r.is_favorite) return false;
+    if (reviewOnly && !r.needs_review) return false;
     if (activeTags.length && !activeTags.every((t) => (r.tags || []).includes(t))) return false;
     if (!terms.length) return true;
     const hay = [r.title || '', r.description || '', ...(r.ingredients || []), ...(r.tags || [])].join(' ').toLowerCase();

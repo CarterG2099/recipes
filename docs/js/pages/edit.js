@@ -11,10 +11,8 @@ import { supabase } from '../supabase.js';
 import { MACROS, servingsCountFrom, hasNutrition, nutritionChanged } from '../nutrition.js';
 import { canEditRecipe } from '../access.js';
 import { shouldImportOnSave, findRecipeUrl, isEmptyDraft, linkErrorMessage } from '../importing.js';
-
-const BUCKET = 'recipe-images';
-const MAX_EDGE = 1600;   // px — plenty for reading a card; keeps uploads small on mobile
-const JPEG_QUALITY = 0.85;
+import { prepImage, uploadBlob, invokeFunction, readFiles } from '../reading.js';
+import { openCamera } from '../camera.js';
 
 // The "Where's this recipe from?" choices, in the order they're shown.
 const SOURCES = [
@@ -54,66 +52,6 @@ function nutritionOf(form) {
   const out = { servings_count: form.servings_count };
   for (const m of MACROS) out[m] = form[m];
   return out;
-}
-
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
-    reader.onerror = () => reject(new Error('Could not read the file'));
-    reader.readAsDataURL(blob);
-  });
-}
-
-// Shrink a phone photo and bake in EXIF rotation. Returns { blob, base64, mimeType }.
-// Non-images (shouldn't happen here) pass through untouched.
-async function prepImage(file) {
-  if (!file.type.startsWith('image/')) {
-    return { blob: file, base64: await blobToBase64(file), mimeType: file.type };
-  }
-  let bitmap;
-  try {
-    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-  } catch (_) {
-    bitmap = await createImageBitmap(file);
-  }
-  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
-  const w = Math.round(bitmap.width * scale);
-  const h = Math.round(bitmap.height * scale);
-  const canvas = document.createElement('canvas');
-  canvas.width = w; canvas.height = h;
-  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
-  const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', JPEG_QUALITY));
-  return { blob, base64: await blobToBase64(blob), mimeType: 'image/jpeg' };
-}
-
-async function uploadBlob(blob, ext, contentType) {
-  const path = `${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType });
-  if (error) throw new Error(error.message);
-  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-}
-
-// Call an Edge Function and return its JSON, throwing its own error message.
-// supabase-js gives a generic message on non-2xx; dig out our real detail.
-async function invokeFunction(name, body) {
-  const { data, error } = await supabase.functions.invoke(name, { body });
-  if (error) {
-    let detail = error.message || 'request failed';
-    try {
-      const json = await error.context.json();
-      if (json?.error) detail = json.error;
-    } catch (_) { /* body wasn't JSON */ }
-    throw new Error(detail);
-  }
-  if (data?.error) throw new Error(data.error);
-  return data;
-}
-
-// Send files (images or a PDF) to the Gemini-backed reader and return its
-// single combined draft. images: [{ imageBase64, mimeType }]
-function readWithGemini(images) {
-  return invokeFunction('import-photo', { images });
 }
 
 /** A read failure whose message is already written for the person reading it. */
@@ -429,22 +367,11 @@ window.editPage = function editPage() {
       this.stepError = '';
       const files = this.files.map((f) => f.file);
       await this._read(async () => {
-        const images = [];
-        const uploaded = [];
-        for (const file of files) {
-          if (this.source === 'pdf') {
-            images.push({ imageBase64: await blobToBase64(file), mimeType: file.type || 'application/pdf' });
-          } else {
-            const { blob, base64, mimeType } = await prepImage(file);
-            uploaded.push(await uploadBlob(blob, 'jpg', mimeType));
-            images.push({ imageBase64: base64, mimeType });
-          }
-        }
-        const draft = await readWithGemini(images);
+        const { draft, imageUrls } = await readFiles(files);
         if (isEmptyDraft(draft)) {
           throw new StepError("We couldn't make out a recipe in that. Try a sharper, well-lit picture, or type it in.");
         }
-        this.form.image_urls.push(...uploaded);
+        this.form.image_urls.push(...imageUrls);
         return draft;
       }, (e) => (/busy/i.test(e.message)
         ? 'The reader is busy right now — please try again in a moment.'
@@ -520,9 +447,24 @@ window.editPage = function editPage() {
       this.importing = false;
     },
 
-    // Attach stored photos (one or many) without re-reading the recipe.
-    async attachPhoto(event) {
+    /** The in-app camera, for the photo step: shots join the picked pictures. */
+    async takePhotos() {
+      this.addFiles(await openCamera());
+    },
+
+    /** The in-app camera, for the form's Photos card: shots are stored with the recipe. */
+    async takeAttachPhotos() {
+      await this.attachFiles(await openCamera());
+    },
+
+    attachPhoto(event) {
       const files = [...(event.target.files || [])];
+      event.target.value = '';
+      return this.attachFiles(files);
+    },
+
+    // Attach stored photos (one or many) without re-reading the recipe.
+    async attachFiles(files) {
       if (!files.length) return;
       this.importing = true; this.error = null;
       try {
@@ -535,7 +477,6 @@ window.editPage = function editPage() {
         this.error = 'Upload failed: ' + (e.message || '');
       }
       this.importing = false;
-      event.target.value = '';
     },
 
     _payload() {
@@ -551,6 +492,8 @@ window.editPage = function editPage() {
         tags: this.form.tagsText.split(',').map(t => t.trim()).filter(Boolean),
         ingredients: this.form.ingredients.map(s => s.trim()).filter(Boolean),
         instructions: this.form.instructions.map(s => s.trim()).filter(Boolean),
+        // Saving from this form is the review a bulk-added recipe was waiting for.
+        needs_review: false,
         ...this._nutritionPayload(),
       };
     },

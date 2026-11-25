@@ -87,4 +87,6 @@ test('signed out: no Mine/Others filter, every recipe listed', async ({ page }) 
   await page.goto('/');
   await expect(page.locator('.recipe-row').first()).toBeVisible();
   await expect(page.locator('.owner-chip')).toHaveCount(0);
+  await expect(page.locator('.review-chip')).toBeHidden();
+  await expect(page.locator('.review-badge:visible')).toHaveCount(0);
 });

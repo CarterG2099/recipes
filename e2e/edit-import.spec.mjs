@@ -1,112 +1,9 @@
 /**
- * Edit page URL import, against this checkout's docs/ rather than the live
- * site. Pages are served from disk through request routing and every Supabase
- * call is faked, so no login or deployed function is needed. Only the pinned
- * supabase-js CDN script is fetched for real.
+ * Edit page: the new-recipe steps, imports, and the form, against this
+ * checkout's docs/ with Supabase faked (see fakes.mjs).
  */
 import { test, expect } from '@playwright/test';
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
-
-const DOCS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../docs');
-const SAMPLE_IMAGE = path.resolve(DOCS, '../sample-photo.jpeg');
-const ORIGIN = 'https://recipes.test';
-const SUPABASE = 'https://hyxttezhchkihuubyprb.supabase.co';
-const LINK = 'https://sugarspunrun.com/meringue-cookie-recipe/';
-const EMAIL = 'editor@example.com';
-
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png' };
-
-const DRAFT = {
-  title: 'Meringue Cookies Recipe',
-  ingredients: ['3 large egg whites', '3/4 cup granulated sugar'],
-  instructions: ['Preheat oven to 225F.', 'Whip the whites.'],
-  tags: [], source_url: LINK,
-};
-
-const EMPTY_DRAFT = {
-  title: '', ingredients: [], instructions: [], tags: [], source_url: LINK,
-  warning: "Couldn't find a structured recipe on that page. You may need to enter the details manually.",
-};
-
-const SAVED = {
-  id: 31, title: 'Meringue Cookies', description: null, ingredients: [], instructions: [],
-  prep_time_minutes: null, cook_time_minutes: null, servings: null, tags: [],
-  source_url: LINK, created_by: EMAIL, image_urls: [], notes: null,
-  servings_count: null, calories: null, protein_g: null, carbs_g: null, fat_g: null,
-  fiber_g: null, sodium_mg: null, nutrition_source: null,
-};
-
-function fakeJwt() {
-  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  return `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: 'u1', email: EMAIL, role: 'authenticated', exp: 4102444800 })}.sig`;
-}
-
-/** Serve docs/, fake Supabase, and record what the page sent. */
-async function setUp(page, { draft = DRAFT, urlError = null, photoError = null } = {}) {
-  const calls = { imports: [], photoReads: [], uploads: [], inserts: [], updates: [] };
-  const user = { id: 'u1', email: EMAIL, aud: 'authenticated', role: 'authenticated' };
-  const session = {
-    access_token: fakeJwt(), refresh_token: 'r', token_type: 'bearer',
-    expires_in: 3600, expires_at: 4102444800, user,
-  };
-  await page.addInitScript(([s]) => {
-    localStorage.setItem('sb-hyxttezhchkihuubyprb-auth-token', s);
-  }, [JSON.stringify(session)]);
-
-  await page.route(`${ORIGIN}/**`, async (route) => {
-    let p = new URL(route.request().url()).pathname;
-    if (p === '/') p = '/index.html';
-    try {
-      const body = await readFile(path.join(DOCS, p));
-      await route.fulfill({ body, contentType: TYPES[path.extname(p)] || 'application/octet-stream' });
-    } catch {
-      await route.fulfill({ status: 404, body: '' });
-    }
-  });
-
-  const cors = {
-    'access-control-allow-origin': '*',
-    'access-control-allow-headers': '*',
-    'access-control-allow-methods': '*',
-  };
-  const json = (route, body, status = 200) =>
-    route.fulfill({ status, headers: { ...cors, 'content-type': 'application/json' }, body: JSON.stringify(body) });
-
-  await page.route(`${SUPABASE}/**`, async (route) => {
-    const req = route.request();
-    if (req.method() === 'OPTIONS') return route.fulfill({ status: 200, headers: cors, body: '' });
-    const { pathname, searchParams } = new URL(req.url());
-
-    if (pathname === '/rest/v1/rpc/is_editor' || pathname === '/rest/v1/rpc/is_admin') return json(route, true);
-    if (pathname === '/rest/v1/rpc/my_household') return json(route, []);
-    if (pathname === '/auth/v1/user') return json(route, user);
-    if (pathname === '/functions/v1/import-url') {
-      calls.imports.push(req.postDataJSON());
-      if (urlError) return json(route, { error: urlError }, 502);
-      return json(route, draft);
-    }
-    if (pathname === '/functions/v1/import-photo') {
-      calls.photoReads.push(req.postDataJSON());
-      if (photoError) return json(route, { error: photoError }, 502);
-      return json(route, draft);
-    }
-    if (pathname.startsWith('/storage/v1/object/recipe-images/')) {
-      calls.uploads.push(pathname);
-      return json(route, { Key: pathname.replace('/storage/v1/object/', '') });
-    }
-    if (pathname === '/rest/v1/recipes') {
-      if (req.method() === 'POST') { calls.inserts.push(req.postDataJSON()); return json(route, { id: 99 }, 201); }
-      if (req.method() === 'PATCH') { calls.updates.push(req.postDataJSON()); return json(route, null, 204); }
-      if (searchParams.get('id') === 'eq.31') return json(route, SAVED);
-      return json(route, []);
-    }
-    return json(route, {});
-  });
-
-  return calls;
-}
+import { setUp, ORIGIN, LINK, SAMPLE_IMAGE, PDF, DRAFT, EMPTY_DRAFT, SAVED } from './fakes.mjs';
 
 const sourceUrl = (page) => page.locator('.form-group', { hasText: 'Source URL' }).locator('input');
 const titleInput = (page) => page.getByPlaceholder("e.g. Grandma's Banana Bread");
@@ -118,7 +15,6 @@ const stepError = (page) => page.locator('.step-error').filter({ visible: true }
 const filePick = (page) => page.locator('input[x-ref="filePick"]');
 const thumbs = (page) => page.locator('.file-thumb');
 const choice = (page, name) => page.getByRole('button', { name: new RegExp(name) });
-const PDF = { name: 'recipe.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF\n') };
 
 async function choose(page, name) {
   await page.goto(`${ORIGIN}/edit.html`);
@@ -234,7 +130,7 @@ test('new recipe: screenshots show first, then Next reads them all as one and ke
   await choose(page, 'A screenshot');
   await expect(page.getByRole('heading', { name: 'Add your screenshots' })).toBeVisible();
   // Screenshots come from the library, not the camera.
-  await expect(page.getByRole('button', { name: /Take a photo/ }).filter({ visible: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Take photos/ }).filter({ visible: true })).toHaveCount(0);
   await expect(nextButton(page)).toBeDisabled();
 
   await filePick(page).setInputFiles(SAMPLE_IMAGE);
@@ -267,7 +163,7 @@ test('new recipe: a picked picture can be removed before reading', async ({ page
 test('new recipe: photo choice offers the camera too', async ({ page }) => {
   await setUp(page);
   await choose(page, 'A photo');
-  await expect(page.getByRole('button', { name: /Take a photo/ }).filter({ visible: true })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /Take photos/ }).filter({ visible: true })).toHaveCount(1);
   await expect(page.getByText('Choose from your photos')).toBeVisible();
 });
 
@@ -390,4 +286,13 @@ test('editing: the link import shows, pre-filled from Source URL, and fills the 
   await expect(ingredientInputs(page).first()).toHaveValue('3 large egg whites');
   expect(calls.imports).toEqual([{ url: LINK }]);
   expect(calls.updates).toEqual([]);
+});
+
+test('editing: saving a recipe that needed review clears the mark', async ({ page }) => {
+  const calls = await setUp(page, { recipes: [{ ...SAVED, needs_review: true, ingredients: ['1 egg'] }] });
+  await page.goto(`${ORIGIN}/edit.html?id=31`);
+  await expect(titleInput(page)).toHaveValue('Meringue Cookies');
+  await saveButton(page).click();
+  await expect.poll(() => calls.updates.length).toBe(1);
+  expect(calls.updates[0]).toMatchObject({ id: 'eq.31', body: { needs_review: false, title: 'Meringue Cookies' } });
 });

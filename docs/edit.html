@@ -60,6 +60,11 @@
               </button>
             </template>
           </div>
+          <a class="bulk-link" href="/bulk.html">
+            <span aria-hidden="true">📚</span>
+            <span><strong>Adding a lot?</strong> Add several at once</span>
+            <span aria-hidden="true">→</span>
+          </a>
         </section>
 
         <!-- 2a. A link: Next reads it. -->
@@ -99,9 +104,7 @@
               <span class="drop-emoji" aria-hidden="true" x-text="source === 'pdf' ? '📄' : '🖼️'"></span>
               <span class="drop-title" x-text="files.length ? (source === 'pdf' ? 'Choose a different PDF' : 'Add more') : (source === 'pdf' ? 'Choose a PDF' : 'Choose from your photos')"></span>
             </label>
-            <button type="button" class="btn-soft" x-show="source === 'photo'" @click="$refs.camera.click()">📸 Take a photo</button>
-            <input type="file" accept="image/*" capture="environment" x-ref="camera" hidden
-                   @change="addFiles($event.target.files); $event.target.value = ''">
+            <button type="button" class="btn-soft" x-show="source === 'photo'" @click="takePhotos()">📸 Take photos</button>
 
             <ul class="file-list" x-show="files.length">
               <template x-for="(f, i) in files" :key="f.preview || f.file.name + i">
@@ -194,11 +197,10 @@
             <span aria-hidden="true">＋</span>
             <span>Add photos</span>
           </label>
-          <button type="button" class="add-photo" @click="$refs.attachCamera.click()" :disabled="importing">
+          <button type="button" class="add-photo" @click="takeAttachPhotos()" :disabled="importing">
             <span aria-hidden="true">📸</span>
-            <span>Take a photo</span>
+            <span>Take photos</span>
           </button>
-          <input type="file" accept="image/*" capture="environment" x-ref="attachCamera" @change="attachPhoto($event)" hidden>
         </div>
       </div>
 

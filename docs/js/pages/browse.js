@@ -14,7 +14,9 @@ window.browsePage = function browsePage() {
     search: '',
     activeTags: [],       // recipes must match ALL selected tags
     favoritesOnly: false,
-    owner: 'mine',        // mine | others — only applied when signed in
+    // Bulk add links here with ?review=1 to show what it just saved.
+    reviewOnly: new URLSearchParams(window.location.search).has('review'),
+    owner: 'mine',       // mine | others — only applied when signed in
     sort: 'oldest',       // oldest | newest | az
     loading: true,
     error: null,
@@ -22,7 +24,7 @@ window.browsePage = function browsePage() {
     async init() {
       const { data, error } = await supabase
         .from('recipes')
-        .select('id, title, description, ingredients, prep_time_minutes, cook_time_minutes, servings, tags, is_favorite, created_by, created_at')
+        .select('id, title, description, ingredients, prep_time_minutes, cook_time_minutes, servings, tags, is_favorite, needs_review, created_by, created_at')
         .order('created_at', { ascending: true });
       if (error) {
         this.error = "Couldn't load recipes. " + error.message;
@@ -62,9 +64,19 @@ window.browsePage = function browsePage() {
     get filtered() {
       return filterRecipes(this.all, {
         search: this.search, activeTags: this.activeTags,
-        favoritesOnly: this.favoritesOnly, sort: this.sort,
+        favoritesOnly: this.favoritesOnly, reviewOnly: this.reviewOnly && this.showReview, sort: this.sort,
         ...this.ownerFilter,
       });
+    },
+
+    // "Needs review" is for editors, and only once there's something to review
+    // in this view (or the filter is already on, so it can be turned off).
+    get reviewCount() {
+      const { owner, mine } = this.ownerFilter;
+      return filterByOwner(this.all, owner, mine).filter((r) => r.needs_review).length;
+    },
+    get showReview() {
+      return Boolean(Alpine.store('auth').isEditor) && (this.reviewCount > 0 || this.reviewOnly);
     },
 
     totalTime(r) {

@@ -233,3 +233,10 @@ alter table public.recipes
   add column if not exists nutrition_source     text
     check (nutrition_source is null or nutrition_source in ('gemini','manual')),
   add column if not exists nutrition_updated_at timestamptz;
+
+-- ── Bulk add review ────────────────────────────────────────────────────────
+-- Bulk add saves each recipe as soon as it is read, before anyone has checked
+-- it; needs_review marks those until an editor saves them from the edit form
+-- or marks them reviewed. recipes_editor_update already governs it.
+alter table public.recipes
+  add column if not exists needs_review boolean not null default false;
