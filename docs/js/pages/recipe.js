@@ -112,6 +112,14 @@ window.recipePage = function recipePage() {
       this.recipe.is_favorite = v;
     },
 
+    // ── bulk-added recipes waiting to be checked ──
+    async markReviewed() {
+      const { error } = await supabase.from('recipes').update({ needs_review: false }).eq('id', this.recipe.id);
+      if (error) { Alpine.store('ui').showToast('Could not mark as reviewed: ' + error.message); return; }
+      this.recipe.needs_review = false;
+      Alpine.store('ui').showToast('Marked as reviewed.');
+    },
+
     // ── check off ──
     toggleIng(i) { this.checkedIng[i] = !this.checkedIng[i]; },
     toggleStep(i) { this.checkedStep[i] = !this.checkedStep[i]; },

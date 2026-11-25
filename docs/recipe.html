@@ -41,6 +41,14 @@
     <div x-show="!loading && error" class="empty-state" x-text="error"></div>
 
     <article class="recipe-detail" x-show="!loading && recipe" x-cloak>
+      <div class="review-banner" x-show="canEdit && recipe?.needs_review" x-cloak>
+        <span aria-hidden="true">🕐</span>
+        <div class="review-text"><strong>Needs review.</strong> This was added in bulk — check it over.</div>
+        <div class="review-actions">
+          <a class="btn-soft btn-soft--sm" :href="`/edit.html?id=${recipe?.id}`">Edit</a>
+          <button class="btn-soft btn-soft--sm" @click="markReviewed()">✓ Looks good</button>
+        </div>
+      </div>
       <div style="display:flex; justify-content:space-between; gap:var(--space-4); align-items:flex-start; flex-wrap:wrap;">
         <h1 x-text="recipe?.title"></h1>
         <div class="header-actions" style="flex:0 0 auto;">

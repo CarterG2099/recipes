@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob: https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add several recipes — Mom's Kitchen</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#5E9C76">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mom's Kitchen">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/pages.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.js" integrity="sha384-CQbEv3UOeYwlaBLdPF5KqEagCP39Q1KpvJC6Gwa3UGjZAwMvpA+0TFxSSnrgb4MX" crossorigin="anonymous"></script>
+</head>
+<body data-page="bulk">
+
+  <header class="app-header" x-data>
+    <a href="/" class="app-logo"><span class="logo-mark">🥗</span> Mom's Kitchen</a>
+    <div class="header-actions">
+      <a href="/admin.html" class="btn btn-ghost btn-sm" x-cloak x-show="$store.auth.isAdmin">Admin</a>
+      <button class="btn btn-ghost btn-sm" @click="$store.auth.logout()">Sign out</button>
+    </div>
+  </header>
+
+  <main class="page-content" x-data="bulkPage()" x-init="init()">
+    <div class="bulk">
+      <div class="wizard-top">
+        <a class="wizard-back" href="/edit.html" aria-label="Back to adding one recipe">←</a>
+      </div>
+      <h1 class="wizard-title">Add several recipes</h1>
+      <p class="wizard-sub">Add links, photos and PDFs. Each one is read and saved, then marked “Needs review” so you can check it.</p>
+
+      <!-- Gather -->
+      <div class="bulk-add" x-show="!running">
+        <div class="form-card">
+          <h2 class="card-title"><span aria-hidden="true">🔗</span> Links</h2>
+          <textarea class="input" rows="3" x-model="linkText" @paste="onPaste()" aria-label="Recipe links"
+                    placeholder="Paste one or more links — one per line is fine"></textarea>
+          <div class="bulk-row-end">
+            <button type="button" class="btn-soft btn-soft--sm" @click="addLinks()" x-show="linkText.trim()">Add links</button>
+          </div>
+        </div>
+
+        <div class="form-card">
+          <h2 class="card-title"><span aria-hidden="true">🖼️</span> Photos &amp; PDFs</h2>
+          <div class="bulk-pick">
+            <label class="drop-zone compact"
+                   @dragover.prevent="$el.classList.add('over')" @dragleave="$el.classList.remove('over')"
+                   @drop.prevent="$el.classList.remove('over'); addFiles($event.dataTransfer.files)">
+              <input type="file" class="sr-only" x-ref="filePick" accept="image/*,application/pdf" multiple
+                     @change="addFiles($event.target.files); $event.target.value = ''">
+              <span class="drop-emoji" aria-hidden="true">📂</span>
+              <span class="drop-title">Choose photos or PDFs</span>
+            </label>
+            <button type="button" class="btn-soft" @click="takePhotos()">📸 Take photos</button>
+          </div>
+        </div>
+
+        <div class="step-error" x-show="notice" role="status"><span x-text="notice"></span></div>
+      </div>
+
+      <!-- The list -->
+      <section class="bulk-list" x-show="items.length" x-cloak>
+        <div class="bulk-list-head">
+          <h2 class="card-title" style="margin:0;">
+            <span x-text="items.length === 1 ? '1 recipe' : `${items.length} recipes`"></span>
+          </h2>
+          <button type="button" class="btn-soft btn-soft--sm" x-show="!grouping && !running && groupablePhotos.length > 1" @click="startGrouping()">Group photos</button>
+        </div>
+        <p class="bulk-hint" x-show="grouping">Tap the photos that are the same recipe (like the front and back of a card), then tap Group.</p>
+
+        <ul class="bulk-items">
+          <template x-for="item in items" :key="item.id">
+            <li class="bulk-item" :class="{ selectable: grouping && item.kind === 'photos' && item.status !== 'saved', selected: isSelected(item.id), [`is-${item.status}`]: true }"
+                @click="grouping && item.kind === 'photos' && item.status !== 'saved' && toggleSelect(item.id)">
+              <div class="bulk-visual">
+                <template x-if="item.kind === 'link'"><span class="bulk-icon" aria-hidden="true">🔗</span></template>
+                <template x-if="item.kind === 'pdf'"><span class="bulk-icon" aria-hidden="true">📄</span></template>
+                <template x-if="item.kind === 'photos'">
+                  <div class="bulk-photos">
+                    <template x-for="(f, i) in item.files" :key="f.preview">
+                      <div class="bulk-photo">
+                        <img :src="f.preview" alt="">
+                        <button type="button" class="bulk-split" x-show="item.files.length > 1 && !grouping && item.status !== 'saved' && item.status !== 'reading'"
+                                @click.stop="splitOut(item.id, i)" :aria-label="`Make photo ${i + 1} its own recipe`" title="Make this its own recipe">↗</button>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+              <div class="bulk-main">
+                <div class="bulk-label" x-text="label(item)"></div>
+                <div class="bulk-status" x-show="item.status === 'ready'" x-text="item.kind === 'photos' && item.files.length > 1 ? 'Read together as one recipe' : 'Ready'"></div>
+                <div class="bulk-status reading" x-show="item.status === 'reading'"><span class="spinner" style="width:14px;height:14px;border-width:2px;"></span> Reading…</div>
+                <div class="bulk-status saved" x-show="item.status === 'saved'">✓ Saved · needs review</div>
+                <div class="bulk-status failed" x-show="item.status === 'failed'" x-text="item.error"></div>
+              </div>
+              <div class="bulk-actions" x-show="!grouping">
+                <a class="btn-soft btn-soft--sm" x-show="item.status === 'saved'" :href="`/edit.html?id=${item.recipeId}`" target="_blank" rel="noopener">Edit</a>
+                <button type="button" class="btn-soft btn-soft--sm" x-show="item.status === 'failed'" @click="retry(item.id)" :disabled="running">Retry</button>
+                <button type="button" class="row-remove" x-show="item.status === 'ready' || item.status === 'failed'" @click="remove(item.id)" :disabled="running" aria-label="Remove">✕</button>
+              </div>
+              <span class="bulk-check" x-show="grouping && item.kind === 'photos' && item.status !== 'saved'" aria-hidden="true" x-text="isSelected(item.id) ? '✓' : ''"></span>
+            </li>
+          </template>
+        </ul>
+      </section>
+
+      <div class="bulk-done found-banner" x-show="finished && saved.length" x-cloak>
+        <span aria-hidden="true">🎉</span>
+        <div>
+          <strong x-text="saved.length === 1 ? '1 recipe saved.' : `${saved.length} recipes saved.`"></strong>
+          <span x-show="failed.length" x-text="` ${failed.length} couldn't be read — retry them or add them one at a time.`"></span>
+          They're marked “Needs review”. <a href="/?review=1">See them all →</a>
+        </div>
+      </div>
+
+      <div class="save-bar bulk-bar" x-show="grouping || running || pending.length" x-cloak>
+        <template x-if="grouping">
+          <div class="bulk-bar-inner">
+            <button type="button" class="btn-soft" @click="cancelGrouping()">Cancel</button>
+            <button type="button" class="btn-next btn-save" @click="groupSelected()" :disabled="selected.length < 2"
+                    x-text="selected.length < 2 ? 'Pick 2 or more' : `Group ${selected.length} into one recipe`"></button>
+          </div>
+        </template>
+        <template x-if="!grouping">
+          <div class="bulk-bar-inner">
+            <span class="bulk-progress" x-show="running" x-text="`Reading ${runDone + 1} of ${runTotal}…`"></span>
+            <button type="button" class="btn-next btn-save" @click="start()" :disabled="running || !pending.length"
+                    x-text="running ? 'Reading…' : !items.some((it) => it.status === 'ready') ? `Try ${pending.length} again` : (pending.length === 1 ? 'Add 1 recipe' : `Add ${pending.length} recipes`)"></button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </main>
+
+  <div class="toast" x-data x-cloak x-show="$store.ui.toast" x-transition>
+    <span class="toast-msg" x-text="$store.ui.toast?.msg"></span>
+    <button class="toast-close" @click="$store.ui.dismissToast()">✕</button>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

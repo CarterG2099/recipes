@@ -52,6 +52,9 @@
         </span>
       </template>
       <button class="tag-chip" :class="{ active: favoritesOnly }" @click="favoritesOnly = !favoritesOnly">⭐ Favorites</button>
+      <button class="tag-chip review-chip" x-show="showReview" :class="{ active: reviewOnly }" @click="reviewOnly = !reviewOnly">
+        🕐 Needs review <span class="chip-count" x-text="reviewCount"></span>
+      </button>
       <template x-for="tag in tags" :key="tag">
         <button class="tag-chip" :class="{ active: isTagActive(tag) }" @click="toggleTag(tag)" x-text="tag"></button>
       </template>
@@ -71,7 +74,7 @@
         <a class="recipe-row" :href="`/recipe.html?id=${r.id}`">
           <span class="rnum" x-text="String(i + 1).padStart(2, '0')"></span>
           <div class="row-main">
-            <h3 class="row-title"><span x-show="r.is_favorite" title="Favorite">⭐ </span><span x-text="r.title"></span></h3>
+            <h3 class="row-title"><span x-show="r.is_favorite" title="Favorite">⭐ </span><span x-text="r.title"></span><span class="review-badge" x-show="r.needs_review && $store.auth.isEditor">Needs review</span></h3>
             <div class="row-tags" x-show="r.tags && r.tags.length">
               <template x-for="tag in r.tags" :key="tag"><span class="ct" x-text="tag"></span></template>
             </div>

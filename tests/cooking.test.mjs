@@ -183,6 +183,13 @@ test('filterRecipes: favorites only', () => {
   assert.deepEqual(r.map((x) => x.title), ['Apple Pie']);
 });
 
+test('filterRecipes: needs review only, combined with other filters', () => {
+  const list = SAMPLE.map((r, i) => ({ ...r, needs_review: i !== 1 }));
+  assert.deepEqual(filterRecipes(list, { reviewOnly: true }).map((x) => x.title), ['Apple Pie', 'Carrot Cake']);
+  assert.deepEqual(filterRecipes(list, { reviewOnly: true, favoritesOnly: true }).map((x) => x.title), ['Apple Pie']);
+  assert.equal(filterRecipes(list, {}).length, 3);
+});
+
 test('filterRecipes: multi-tag is AND (must match all)', () => {
   assert.deepEqual(filterRecipes(SAMPLE, { activeTags: ['dessert'] }).map((x) => x.title), ['Apple Pie', 'Carrot Cake']);
   assert.deepEqual(filterRecipes(SAMPLE, { activeTags: ['dessert', 'baking'] }).map((x) => x.title), ['Apple Pie']);
